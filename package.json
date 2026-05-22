@@ -1,0 +1,13 @@
+{
+  "name": "xero-dev",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"emulator,frontend\" --prefix-colors \"cyan,green\" \"npx firebase-tools emulators:start\" \"npx serve -l 3000 public\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "firebase-functions": "^7.2.5"
+  }
+}

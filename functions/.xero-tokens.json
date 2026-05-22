@@ -1,0 +1,33 @@
+{
+  "tokenSet": {
+    "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3Nzk0NTUwOTksImV4cCI6MTc3OTQ1NTM5OSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6IkIwRDM3N0MyMkIwMzQ5NzJCMzQyNDhCMjk5NDUzMzUyIiwiaWF0IjoxNzc5NDU1MDk5LCJhdF9oYXNoIjoicXFJZnJCVk9TTUlNM2NURkdCNXpPQSIsInN1YiI6IjRmMDhlZDhhNjY5MjU3NmJhNDQzMDEyZjZmZTUyODM3IiwiYXV0aF90aW1lIjoxNzc5NDQ3MzYyLCJ4ZXJvX3VzZXJpZCI6ImNjYjdkYmUzLWUyOGUtNDM2OS1hMjRlLTRiYjEyY2JkZTU1NSIsImdsb2JhbF9zZXNzaW9uX2lkIjoiZmU5N2RjNWU1YzYxNGI4ZmFkNzIwYTU5NmY4M2NkYWIiLCJzaWQiOiJmZTk3ZGM1ZTVjNjE0YjhmYWQ3MjBhNTk2ZjgzY2RhYiIsImF1dGhlbnRpY2F0aW9uX2V2ZW50X2lkIjoiNjQ2ZTAzZDMtNmIwOS00NTQ4LTlmOGUtOGI5Njk0NGExMTcwIiwicHJlZmVycmVkX3VzZXJuYW1lIjoibGlrYUBib3hmdWwuY29tLnR3IiwiZW1haWwiOiJsaWthQGJveGZ1bC5jb20udHciLCJnaXZlbl9uYW1lIjoiTGlrYSIsImZhbWlseV9uYW1lIjoiQ2hhbmciLCJuYW1lIjoiTGlrYSBDaGFuZyIsImFtciI6WyJwd2QiXX0.y1i0PVwEjDbVdPg6tgmEKXs1ZYvFT7n6WUBY4ORumtVzW4jmusk3j3qjMhaaC72nEXrKbCDK8OiNwzf8HUalVrz2euwR5q_vbNZJWsPt9BgxgvbTaqJ2sL447HHF1MM9afQirmO4X8zRzqx6gA-9G9UHQnIwKwguCwIOYUCXlq9bF39buS82q7uFoLUqtgUGahuKj8XvQJkxKw1-UKJ09sS7sVq_40va4_5YYXIa7ZvC4fEiHqjoxx7Gx6ZrjVUO6aDS6yGC6v4z2jh0FcNDLzLh_yH0TXzJJWlMLufYm_n2Apb3u1OyEHMPW2k2UpiRIMDKg8HwTvqmGmNu3CaOug",
+    "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3Nzk0NTUwOTksImV4cCI6MTc3OTQ1Njg5OSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiQjBEMzc3QzIyQjAzNDk3MkIzNDI0OEIyOTk0NTMzNTIiLCJzdWIiOiI0ZjA4ZWQ4YTY2OTI1NzZiYTQ0MzAxMmY2ZmU1MjgzNyIsImF1dGhfdGltZSI6MTc3OTQ0NzM2MiwieGVyb191c2VyaWQiOiJjY2I3ZGJlMy1lMjhlLTQzNjktYTI0ZS00YmIxMmNiZGU1NTUiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6ImZlOTdkYzVlNWM2MTRiOGZhZDcyMGE1OTZmODNjZGFiIiwic2lkIjoiZmU5N2RjNWU1YzYxNGI4ZmFkNzIwYTU5NmY4M2NkYWIiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjY0NmUwM2QzLTZiMDktNDU0OC05ZjhlLThiOTY5NDRhMTE3MCIsImp0aSI6IjVDRDcyM0FGNEJGNDkzN0M2OEMzODMzNzk5OEVCOEZDIiwic2NvcGUiOlsiZW1haWwiLCJwcm9maWxlIiwib3BlbmlkIiwiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuc2V0dGluZ3MucmVhZCIsImFjY291bnRpbmcuaW52b2ljZXMiLCJhY2NvdW50aW5nLnJlcG9ydHMuYmFsYW5jZXNoZWV0LnJlYWQiLCJhY2NvdW50aW5nLnJlcG9ydHMuZXhlY3V0aXZlc3VtbWFyeS5yZWFkIiwiYWNjb3VudGluZy5yZXBvcnRzLnByb2ZpdGFuZGxvc3MucmVhZCIsImFjY291bnRpbmcucmVwb3J0cy50cmlhbGJhbGFuY2UucmVhZCIsIm9mZmxpbmVfYWNjZXNzIl0sImFtciI6WyJwd2QiXX0.L9186LxsS2eh1DF5Kcof263u-TnxX2RGokTBM80MX6iN6MXWWnwEFSYIqi2RWVYwLz_GPg304kFNUSWfMUZmtnFMRcOT_0l9-y_jDxwNvq6sVtpC4aRKX2iWRs4s3KkxujU5caZYxTfqXVVFTpl4JtqDYeGMHFVQ0L0V2RNqBuQzuD28dal1Ea5EizxCkSf3gKvWJwAGClezlsjBDefj8W8Tjgd-1_4P_DBR-0u9QNvPe75Ui3-LcPKeJyR6tsjNGF2s-scmfHcA-_0LYX4Aosu2GxHOw63lLDWp2iC-t7sLyoTwL4I-cmCMWT6SDKWJc2GQxUwysrLybVwplKh8vA",
+    "expires_in": 1800,
+    "token_type": "Bearer",
+    "refresh_token": "JYWZKyIDsPLwIORaeBFiyR6LuZybe3G0A0QTmPgYczQ",
+    "scope": "email profile openid accounting.contacts accounting.settings.read accounting.invoices accounting.reports.balancesheet.read accounting.reports.executivesummary.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read offline_access"
+  },
+  "tenants": [
+    {
+      "id": "d3a4dc56-088c-4c0a-a1bd-2cfaf27e5b75",
+      "authEventId": "572d24d2-cf7e-4fbc-8bbc-a6001fca7b0b",
+      "tenantId": "2cd792df-9e0c-415f-9cc8-5b42ab48dc1a",
+      "tenantType": "ORGANISATION",
+      "tenantName": "Boxful Taiwan",
+      "createdDateUtc": "2026-05-19T11:23:25.0526980",
+      "updatedDateUtc": "2026-05-22T11:20:12.1491480"
+    },
+    {
+      "id": "b0edca35-5390-42c0-9d73-0c458204d406",
+      "authEventId": "646e03d3-6b09-4548-9f8e-8b96944a1170",
+      "tenantId": "e7e8bc9d-d12a-4904-b6f7-e9f8b85194b2",
+      "tenantType": "ORGANISATION",
+      "tenantName": "Boxful Storage TW",
+      "createdDateUtc": "2026-05-19T11:24:36.3446680",
+      "updatedDateUtc": "2026-05-22T11:20:25.6819510"
+    }
+  ],
+  "activeTenantId": "2cd792df-9e0c-415f-9cc8-5b42ab48dc1a",
+  "activeTenantName": "Boxful Taiwan",
+  "updatedAt": "2026-05-22T13:04:57.829Z"
+}
