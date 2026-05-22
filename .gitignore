@@ -1,1 +1,16 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Secrets & tokens
+functions/.env
+functions/.xero-tokens.json
+
+# Firebase debug logs
+functions/firebase-debug.log
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
