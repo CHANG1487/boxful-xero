@@ -1,6 +1,8 @@
 import { switchTenant } from './firebase-init.js';
 
-const API = 'http://localhost:5001/xero-frontend/us-central1/api';
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5001/xero-frontend/us-central1/api'
+    : 'https://us-central1-xero-frontend.cloudfunctions.net/api';
 
 async function getAuthHeaders() {
     const user = window.firebaseAuth?.currentUser;
