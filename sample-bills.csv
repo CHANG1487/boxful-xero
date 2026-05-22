@@ -1,0 +1,6 @@
+ContactName,EmailAddress,InvoiceNumber,Reference,InvoiceDate,DueDate,Description,Quantity,UnitAmount,AccountCode,TaxType,Currency
+台灣辦公室用品公司,office@supplier.com.tw,BILL-001,PO-2024-001,2024-01-15,2024-02-15,辦公室文具採購,1,5000,629,TAX,TWD
+網路行銷顧問有限公司,,BILL-002,PO-2024-002,2024-01-20,2024-02-20,一月份廣告投放費用,1,30000,404,TAX,TWD
+倉儲物流股份有限公司,,BILL-003,PO-2024-003,2024-01-25,2024-02-25,倉庫租金 - 一月,1,50000,445,TAX,TWD
+電信公司,,BILL-004,,2024-01-28,2024-02-28,辦公室寬頻網路費用,1,2500,461,TAX,TWD
+清潔服務有限公司,,BILL-005,PO-2024-005,2024-01-31,2024-03-01,辦公室清潔服務 - 一月,1,8000,463,TAX,TWD

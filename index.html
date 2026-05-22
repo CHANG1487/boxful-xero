@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xero 財會前台系統</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+    <!-- 登入頁面 -->
+    <div id="login-view" class="view active-view">
+        <div class="login-card glass-panel">
+            <div class="logo-container">
+                <div class="logo">X</div>
+                <h1>Xero 財會前台系統</h1>
+            </div>
+            <p class="subtitle">企業級財務管理與批次處理平台</p>
+            <div class="login-actions">
+                <button id="google-login-btn" class="primary-btn">
+                    <svg class="google-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.238-2.657-.611-3.917z"/>
+                        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.238-2.657-.611-3.917z"/>
+                    </svg>
+                    使用 Google 帳號登入
+                </button>
+            </div>
+        </div>
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- 主儀表板 -->
+    <div id="dashboard-view" class="view">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Xero Frontend</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active" data-target="panel-import" data-title="批次匯入 Bills">📥 批次匯入 (Bills)</li>
+                    <li data-target="panel-reports" data-title="報表與明細查詢">📊 報表與明細查詢</li>
+                    <li data-target="panel-settings" data-title="系統設定">⚙️ 系統設定</li>
+                </ul>
+            </nav>
+            <div class="user-info">
+                <img id="user-avatar" src="" alt="Avatar">
+                <div class="user-details">
+                    <span id="user-name">User Name</span>
+                    <button id="logout-btn" class="text-btn">登出</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content-area">
+            <header class="topbar">
+                <h2 id="current-page-title">批次匯入 Bills</h2>
+                <div class="topbar-right">
+                    <!-- 目前操作公司（防呆機制） -->
+                    <div id="tenant-section" style="display:none" class="tenant-section">
+                        <div class="tenant-badge" id="tenant-badge" title="目前操作公司">
+                            <span class="tenant-dot"></span>
+                            <span id="tenant-name-display">-</span>
+                        </div>
+                        <button id="switch-tenant-btn" class="outline-btn small" style="display:none" title="切換操作公司">切換公司</button>
+                    </div>
+                    <!-- Xero 連線狀態 -->
+                    <div class="xero-status">
+                        <span class="status-dot"></span>
+                        <span id="xero-connection-status">Xero 未連結</span>
+                        <button id="connect-xero-btn" class="outline-btn small">連結 Xero</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Panel: 批次匯入 -->
+            <section id="panel-import" class="panel active-panel">
+                <div class="card upload-card">
+                    <h3>上傳 CSV 檔案</h3>
+                    <p>請上傳包含應付帳款 (Bills) 的 CSV 檔案。欄位須符合 Xero 格式規範。</p>
+
+                    <!-- 範例檔下載 -->
+                    <div class="download-section">
+                        <div>
+                            <div style="font-size:0.875rem;font-weight:500;margin-bottom:0.25rem">範例檔案下載</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted)">包含正確欄位格式與範例資料，可直接修改使用</div>
+                        </div>
+                        <a href="sample-bills.csv" download="sample-bills.csv" class="download-btn">⬇ 下載範例 CSV</a>
+                    </div>
+
+                    <!-- 欄位格式說明 -->
+                    <details class="format-details">
+                        <summary>CSV 欄位格式說明</summary>
+                        <table class="format-table">
+                            <thead>
+                                <tr><th>欄位名稱</th><th>必填</th><th>說明</th><th>範例</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>ContactName</td><td><span class="required-badge">必填</span></td><td>廠商名稱</td><td>台灣供應商有限公司</td></tr>
+                                <tr><td>InvoiceDate</td><td><span class="required-badge">必填</span></td><td>發票日期</td><td>2024-01-15</td></tr>
+                                <tr><td>DueDate</td><td><span class="required-badge">必填</span></td><td>到期日</td><td>2024-02-15</td></tr>
+                                <tr><td>Description</td><td><span class="required-badge">必填</span></td><td>費用說明</td><td>辦公室租金</td></tr>
+                                <tr><td>Quantity</td><td><span class="required-badge">必填</span></td><td>數量</td><td>1</td></tr>
+                                <tr><td>UnitAmount</td><td><span class="required-badge">必填</span></td><td>單價（未稅）</td><td>50000</td></tr>
+                                <tr><td>AccountCode</td><td><span class="required-badge">必填</span></td><td>Xero 科目代碼</td><td>445</td></tr>
+                                <tr><td>TaxType</td><td><span class="optional-badge">選填</span></td><td>稅別：TAX / NONE</td><td>TAX</td></tr>
+                                <tr><td>InvoiceNumber</td><td><span class="optional-badge">選填</span></td><td>帳單編號</td><td>BILL-001</td></tr>
+                                <tr><td>Reference</td><td><span class="optional-badge">選填</span></td><td>參考編號</td><td>PO-2024-001</td></tr>
+                                <tr><td>Currency</td><td><span class="optional-badge">選填</span></td><td>幣別（預設組織設定）</td><td>TWD</td></tr>
+                                <tr><td>EmailAddress</td><td><span class="optional-badge">選填</span></td><td>廠商 Email</td><td>vendor@example.com</td></tr>
+                            </tbody>
+                        </table>
+                    </details>
+
+                    <div class="drop-zone" id="csv-drop-zone">
+                        <span class="drop-text">點擊或拖曳 CSV 檔案至此處</span>
+                        <input type="file" id="csv-file-input" accept=".csv" hidden>
+                    </div>
+                </div>
+
+                <div class="card preview-card" style="display: none;">
+                    <h3>資料預覽 <span class="badge" id="preview-count">0 筆</span></h3>
+                    <div class="table-container">
+                        <table id="preview-table">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="action-bar">
+                        <button id="submit-bills-btn" class="primary-btn" style="max-width:240px">確認並匯入至 Xero</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Panel: 報表與明細查詢 -->
+            <section id="panel-reports" class="panel">
+
+                <!-- Section 1: Xero 報表 -->
+                <div class="card">
+                    <h3>Xero 報表</h3>
+                    <p style="margin-bottom:1rem">直接呼叫您在 Xero 中儲存的自訂報表（Favourite Reports）</p>
+
+                    <div id="reports-list-loading" class="loading-state" style="display:none;padding:1rem 0">載入報表清單...</div>
+                    <div id="reports-list-error" class="error-state" style="display:none;padding:0.5rem 0"></div>
+
+                    <!-- 報表清單（radio 選擇） -->
+                    <div id="reports-list-container" style="display:none">
+                        <div id="reports-radio-list" class="reports-radio-list"></div>
+                        <!-- 選定報表後顯示日期控制 -->
+                        <div id="report-run-controls" style="display:none;margin-top:1rem">
+                            <div class="report-date-row">
+                                <div class="date-group" id="report-range-group">
+                                    <label>起始日期</label>
+                                    <input type="date" id="report-from-date" class="date-input">
+                                    <label>結束日期</label>
+                                    <input type="date" id="report-to-date" class="date-input">
+                                </div>
+                                <div class="date-group" id="report-single-group" style="display:none">
+                                    <label>截止日期</label>
+                                    <input type="date" id="report-date" class="date-input">
+                                </div>
+                                <button id="run-report-btn" class="primary-btn-sm">產生報表</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: 科目明細表 -->
+                <div class="card">
+                    <h3>科目明細表 (Account Transactions)</h3>
+                    <p style="margin-bottom:1rem">依科目查詢交易明細，對應 Xero 的 Account Transactions 報表</p>
+                    <div class="report-date-row">
+                        <div class="date-group">
+                            <label>科目</label>
+                            <div class="account-combo" id="account-combo">
+                                <input type="text" id="account-combo-input" class="date-input account-combo-input"
+                                       placeholder="全部科目（可輸入代碼/名稱搜尋）" autocomplete="off">
+                                <input type="hidden" id="account-select" value="">
+                                <div id="account-combo-dropdown" class="account-combo-dropdown" style="display:none"></div>
+                            </div>
+                        </div>
+                        <div class="date-group">
+                            <label>起始日期</label>
+                            <input type="date" id="at-from-date" class="date-input">
+                            <label>結束日期</label>
+                            <input type="date" id="at-to-date" class="date-input">
+                        </div>
+                        <button id="run-at-btn" class="primary-btn-sm">查詢明細</button>
+                    </div>
+                </div>
+
+                <div id="report-loading" style="display:none" class="loading-state">
+                    <div style="font-size:2rem;margin-bottom:0.5rem">⏳</div>
+                    載入報表中...
+                </div>
+                <div id="report-error" style="display:none" class="error-state"></div>
+
+                <div class="card" id="report-result-card" style="display:none">
+                    <div class="result-search-row">
+                        <input type="text" id="report-search" class="search-input" placeholder="搜尋說明、金額、科目（支援中文/英文）...">
+                        <span id="search-count" style="color:var(--text-muted);font-size:0.875rem;white-space:nowrap"></span>
+                        <button id="export-excel-btn" class="outline-btn small" title="匯出 Excel">⬇ Excel</button>
+                    </div>
+                    <div id="report-header-info" class="report-header-info"></div>
+                    <div class="table-container" id="report-table-container"></div>
+                </div>
+            </section>
+
+            <!-- Panel: 系統設定 -->
+            <section id="panel-settings" class="panel">
+                <div class="card">
+                    <h3>Xero 連線狀態</h3>
+                    <p>管理 Xero API 授權與操作公司設定</p>
+                    <div id="settings-xero-info" style="margin-top:1rem"></div>
+                    <button id="reconnect-xero-btn" class="outline-btn small" style="margin-top:1rem">重新授權 Xero</button>
+                </div>
+                <div class="card" id="settings-tenant-card" style="display:none">
+                    <h3>操作公司選擇</h3>
+                    <p>選擇目前要操作的 Xero 組織，所有匯入與查詢都會針對此公司執行。</p>
+                    <div id="settings-tenant-list" class="tenant-list" style="margin-top:1rem"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<!-- Modal: 切換公司 -->
+<div class="modal-overlay" id="tenant-switch-modal">
+    <div class="modal">
+        <h3>選擇操作公司</h3>
+        <p>所有資料匯入與查詢都會針對以下選擇的公司執行，請確認後再繼續。</p>
+        <div id="tenant-list" class="tenant-list"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="tenant-modal-close">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: 匯入確認（防呆） -->
+<div class="modal-overlay" id="import-confirm-modal">
+    <div class="modal">
+        <h3>⚠️ 確認匯入</h3>
+        <p>您即將匯入 <strong id="import-confirm-count">0</strong> 筆帳單至以下公司：</p>
+        <span class="modal-company" id="import-confirm-company">-</span>
+        <p style="color:#ef4444;font-size:0.8rem">此操作將在 Xero 建立已授權帳單，無法自動復原，請確認公司正確。</p>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="import-cancel-btn">取消</button>
+            <button class="btn-confirm" id="import-confirm-btn">確認匯入</button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/firebase-init.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
