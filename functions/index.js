@@ -294,60 +294,51 @@ app.get('/reports/account-transactions', verifyAuth, async (req, res) => {
     }
 });
 
-// 科目明細（使用 Xero AccountTransactions report，資料與 Xero UI 一致）
+// 科目明細（Invoices API，目前 scope 可使用）
 app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
     try {
-        const { accountIds, fromDate, toDate } = req.query;
-        const targetIds = accountIds ? accountIds.split(',').filter(Boolean) : [];
+        const { accountCodes, fromDate, toDate } = req.query;
+        const targetCodes = accountCodes ? accountCodes.split(',').filter(Boolean) : [];
 
-        const fetchForAccount = async (accountID) => {
-            const params = {};
-            if (accountID) params.accountID = accountID;
-            if (fromDate) params.fromDate = fromDate;
-            if (toDate) params.toDate = toDate;
-            const data = await xeroFetch('Reports/AccountTransactions', params);
-            return (data.Reports || [data])[0];
-        };
+        const conds = ['Status!="DELETED"', 'Status!="VOIDED"'];
+        if (fromDate) {
+            const [y, m, d] = fromDate.split('-').map(Number);
+            conds.push(`Date>=DateTime(${y},${m},${d})`);
+        }
+        if (toDate) {
+            const [y, m, d] = toDate.split('-').map(Number);
+            conds.push(`Date<=DateTime(${y},${m},${d})`);
+        }
+        const where = conds.join('&&');
 
-        // Parallel fetch: one call per selected account, or one call for all if none selected
-        const reports = targetIds.length > 0
-            ? await Promise.all(targetIds.map(id => fetchForAccount(id)))
-            : [await fetchForAccount(null)];
-
-        // Parse Xero AccountTransactions report format into flat rows
-        // Columns: Date, Source, Contact, Description, Reference, Debit, Credit, Balance
-        const dataRows = [];
-        let totalNet = 0;
-
-        for (const report of reports) {
-            for (const section of (report?.Rows || [])) {
-                if (section.RowType !== 'Section') continue;
-                const title = section.Title || '';
-                // Extract account code from "483 - Logistics Expenses 2B"
-                const codeMatch = title.match(/^([^\s]+)/);
-                const code = codeMatch ? codeMatch[1] : title;
-
-                for (const row of (section.Rows || [])) {
-                    if (row.RowType !== 'Row') continue;
-                    const cells = row.Cells || [];
-                    const date    = cells[0]?.Value || '';
-                    const source  = cells[1]?.Value || '';
-                    const contact = cells[2]?.Value || '';
-                    const desc    = cells[3]?.Value || '';
-                    const ref     = cells[4]?.Value || '';
-                    const debit   = parseFloat((cells[5]?.Value || '').replace(/,/g, '')) || 0;
-                    const credit  = parseFloat((cells[6]?.Value || '').replace(/,/g, '')) || 0;
-                    const net     = debit - credit;
-                    totalNet += net;
-                    dataRows.push({ date, source, contact, desc, ref, code, net });
-                }
-            }
+        const allInvoices = [];
+        let page = 1;
+        while (page <= 20) {
+            const data = await xeroFetch('Invoices', { where, summaryOnly: 'false', unitdp: '4', page: String(page) });
+            const batch = data.Invoices || [];
+            allInvoices.push(...batch);
+            if (batch.length < 100) break;
+            page++;
         }
 
-        // Sort by date ("DD MMM YYYY" from Xero is parseable by Date constructor)
-        dataRows.sort((a, b) => new Date(a.date) - new Date(b.date));
+        const dataRows = [];
+        let totalNet = 0;
+        for (const inv of allInvoices) {
+            const date    = (inv.DateString || '').substring(0, 10);
+            const source  = inv.Type === 'ACCPAY' ? 'Bill' : 'Invoice';
+            const contact = inv.Contact?.Name || '';
+            const ref     = [inv.InvoiceNumber, inv.Reference].filter(Boolean).join(' / ');
 
-        const label = targetIds.length ? `${targetIds.length} 個科目` : '全部科目';
+            for (const li of (inv.LineItems || [])) {
+                if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
+                const net = Number(li.LineAmount || 0);
+                totalNet += net;
+                dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
+            }
+        }
+        dataRows.sort((a, b) => a.date.localeCompare(b.date));
+
+        const label = targetCodes.length ? targetCodes.join(', ') : '全部科目';
         const result = {
             ReportName: `科目明細 — ${label}`,
             ReportDate: `${fromDate || ''} ～ ${toDate || ''}`,
