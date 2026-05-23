@@ -73,7 +73,7 @@ const verifyAuth = async (req, res, next) => {
 
 app.get('/xero/auth-url', verifyAuth, async (req, res) => {
     try {
-        const scopes = 'openid profile email offline_access accounting.transactions accounting.contacts accounting.settings.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.executivesummary.read';
+        const scopes = 'openid profile email offline_access accounting.invoices accounting.contacts accounting.settings.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.executivesummary.read';
         const params = new URLSearchParams({
             response_type: 'code',
             client_id: process.env.XERO_CLIENT_ID,
