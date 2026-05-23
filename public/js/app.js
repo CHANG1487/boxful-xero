@@ -405,10 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const keyword = document.getElementById('at-keyword')?.value.trim() || '';
         const params = new URLSearchParams();
         if (selectedAccountIds.length) {
-            const codes = selectedAccountIds
-                .map(id => allAccountsData.find(a => a.accountID === id)?.code)
-                .filter(Boolean);
-            if (codes.length) params.set('accountCodes', codes.join(','));
+            params.set('accountIds', selectedAccountIds.join(','));
         }
         if (fromDate) params.set('fromDate', fromDate);
         if (toDate) params.set('toDate', toDate);
@@ -443,10 +440,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             loadingEl.style.display = 'none';
             errorEl.style.display = 'block';
-            const is401 = err.message.includes('401') || err.message.toLowerCase().includes('unauthorized');
-            if (is401) {
+            const isAuthError = err.message.includes('401') || err.message.includes('403') || err.message.toLowerCase().includes('unauthorized') || err.message.toLowerCase().includes('forbidden');
+            if (isAuthError) {
                 errorEl.innerHTML = `
-                    <div>報表存取權限不足。請重新授權 Xero 以取得報表查詢權限。</div>
+                    <div>報表存取權限不足。請重新授權 Xero 以取得科目明細查詢權限。</div>
                     <button onclick="window.connectXero?.()" class="primary-btn-sm" style="margin-top:0.75rem;display:inline-block">重新授權 Xero</button>
                 `;
             } else {
@@ -464,9 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
         headerInfoEl.innerText = [name, dateStr].filter(Boolean).join(' — ');
 
         const rows = report.Rows || report.rows || [];
+        const numericFromCol = report.NumericFromCol ?? 1;
         const table = document.createElement('table');
         table.className = 'report-table';
-        rows.forEach(row => renderRow(row, table, 0));
+        rows.forEach(row => renderRow(row, table, 0, numericFromCol));
 
         container.innerHTML = '';
         container.appendChild(table);
@@ -510,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('export-excel-btn')?.addEventListener('click', exportToExcel);
 
-    function renderRow(row, table, depth) {
+    function renderRow(row, table, depth, numericFromCol = 1) {
         const type = (row.RowType || row.rowType || '').toLowerCase();
         const cells = row.Cells || row.cells || [];
         const nested = row.Rows || row.rows || [];
@@ -522,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cells.forEach((cell, i) => {
                 const th = document.createElement('th');
                 th.innerText = cell.Value || cell.value || '';
-                if (i > 0) th.style.textAlign = 'right';
+                if (i >= numericFromCol) th.style.textAlign = 'right';
                 tr.appendChild(th);
             });
             table.appendChild(tr);
@@ -540,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(td);
                 table.appendChild(tr);
             }
-            nested.forEach(r => renderRow(r, table, depth + 1));
+            nested.forEach(r => renderRow(r, table, depth + 1, numericFromCol));
             return;
         }
 
@@ -551,12 +549,12 @@ document.addEventListener('DOMContentLoaded', () => {
             cells.forEach((cell, i) => {
                 const td = document.createElement('td');
                 const val = cell.Value || cell.value || '';
-                if (i > 0) {
+                if (i >= numericFromCol) {
                     td.innerText = formatCurrency(val);
                     td.style.textAlign = 'right';
                 } else {
                     td.innerText = val;
-                    if (depth > 0 && type === 'row') {
+                    if (i === 0 && depth > 0 && type === 'row') {
                         td.style.paddingLeft = (1 + depth * 1.25) + 'rem';
                     }
                 }
