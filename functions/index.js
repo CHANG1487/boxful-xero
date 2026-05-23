@@ -73,7 +73,7 @@ const verifyAuth = async (req, res, next) => {
 
 app.get('/xero/auth-url', verifyAuth, async (req, res) => {
     try {
-        const scopes = 'openid profile email offline_access accounting.invoices accounting.contacts accounting.settings.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.executivesummary.read';
+        const scopes = 'openid profile email offline_access accounting.invoices accounting.banktransactions.read accounting.manualjournals.read accounting.contacts accounting.settings.read accounting.reports.balancesheet.read accounting.reports.profitandloss.read accounting.reports.trialbalance.read accounting.reports.executivesummary.read';
         const params = new URLSearchParams({
             response_type: 'code',
             client_id: process.env.XERO_CLIENT_ID,
@@ -294,41 +294,49 @@ app.get('/reports/account-transactions', verifyAuth, async (req, res) => {
     }
 });
 
-// 科目明細（Invoices API，目前 scope 可使用）
+// 科目明細（Invoices + BankTransactions + ManualJournals 合併，涵蓋所有交易類型）
+async function fetchAllPages(path, params, arrayKey) {
+    const results = [];
+    for (let page = 1; page <= 20; page++) {
+        const data = await xeroFetch(path, { ...params, page: String(page) });
+        const batch = data[arrayKey] || [];
+        results.push(...batch);
+        if (batch.length < 100) break;
+    }
+    return results;
+}
+
 app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
     try {
         const { accountCodes, fromDate, toDate } = req.query;
         const targetCodes = accountCodes ? accountCodes.split(',').filter(Boolean) : [];
 
-        const conds = ['Status!="DELETED"', 'Status!="VOIDED"'];
-        if (fromDate) {
-            const [y, m, d] = fromDate.split('-').map(Number);
-            conds.push(`Date>=DateTime(${y},${m},${d})`);
-        }
-        if (toDate) {
-            const [y, m, d] = toDate.split('-').map(Number);
-            conds.push(`Date<=DateTime(${y},${m},${d})`);
-        }
-        const where = conds.join('&&');
+        // Build DateTime where clause (same format works for all three APIs)
+        const dateConds = [];
+        if (fromDate) { const [y,m,d] = fromDate.split('-').map(Number); dateConds.push(`Date>=DateTime(${y},${m},${d})`); }
+        if (toDate)   { const [y,m,d] = toDate.split('-').map(Number);   dateConds.push(`Date<=DateTime(${y},${m},${d})`); }
+        const dateWhere = dateConds.join('&&');
 
-        const allInvoices = [];
-        let page = 1;
-        while (page <= 20) {
-            const data = await xeroFetch('Invoices', { where, summaryOnly: 'false', unitdp: '4', page: String(page) });
-            const batch = data.Invoices || [];
-            allInvoices.push(...batch);
-            if (batch.length < 100) break;
-            page++;
-        }
+        const invWhere  = ['Status!="DELETED"','Status!="VOIDED"', ...dateConds].join('&&');
+        const btWhere   = ['Status!="DELETED"', ...dateConds].join('&&');
+        const mjWhere   = ['Status!="DELETED"', ...dateConds].join('&&');
+
+        // Fetch all three sources in parallel
+        const [invoices, bankTxns, journals] = await Promise.all([
+            fetchAllPages('Invoices',          { where: invWhere, summaryOnly: 'false', unitdp: '4' }, 'Invoices'),
+            fetchAllPages('BankTransactions',  { where: btWhere,  unitdp: '4' },                       'BankTransactions'),
+            fetchAllPages('ManualJournals',    { where: mjWhere },                                      'ManualJournals'),
+        ]);
 
         const dataRows = [];
         let totalNet = 0;
-        for (const inv of allInvoices) {
+
+        // Invoices / Bills
+        for (const inv of invoices) {
             const date    = (inv.DateString || '').substring(0, 10);
             const source  = inv.Type === 'ACCPAY' ? 'Bill' : 'Invoice';
             const contact = inv.Contact?.Name || '';
             const ref     = [inv.InvoiceNumber, inv.Reference].filter(Boolean).join(' / ');
-
             for (const li of (inv.LineItems || [])) {
                 if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
                 const net = Number(li.LineAmount || 0);
@@ -336,6 +344,33 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
                 dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
             }
         }
+
+        // Bank Transactions
+        for (const bt of bankTxns) {
+            const date    = (bt.DateString || '').substring(0, 10);
+            const source  = bt.Type === 'SPEND' ? 'Spend' : bt.Type === 'RECEIVE' ? 'Receive' : (bt.Type || 'Bank');
+            const contact = bt.Contact?.Name || '';
+            const ref     = bt.Reference || '';
+            for (const li of (bt.LineItems || [])) {
+                if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
+                const net = bt.Type === 'SPEND' ? -Number(li.LineAmount || 0) : Number(li.LineAmount || 0);
+                totalNet += net;
+                dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
+            }
+        }
+
+        // Manual Journals
+        for (const j of journals) {
+            const date = (j.DateString || '').substring(0, 10);
+            const ref  = j.Narration || '';
+            for (const jl of (j.JournalLines || [])) {
+                if (targetCodes.length && !targetCodes.includes(jl.AccountCode)) continue;
+                const net = Number(jl.LineAmount || 0);
+                totalNet += net;
+                dataRows.push({ date, source: 'Journal', contact: '', desc: jl.Description || '', ref, code: jl.AccountCode || '', net });
+            }
+        }
+
         dataRows.sort((a, b) => a.date.localeCompare(b.date));
 
         const label = targetCodes.length ? targetCodes.join(', ') : '全部科目';
