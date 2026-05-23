@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = report.Rows || report.rows || [];
         const numericFromCol = report.NumericFromCol ?? 1;
         const table = document.createElement('table');
-        table.className = 'report-table';
+        table.className = numericFromCol > 1 ? 'report-table ledger-table' : 'report-table';
         rows.forEach(row => renderRow(row, table, 0, numericFromCol));
 
         container.innerHTML = '';
@@ -491,15 +491,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const reportTitle = document.getElementById('report-header-info')?.innerText || 'report';
         const wsData = [];
         table.querySelectorAll('tr').forEach(tr => {
-            if (tr.classList.contains('report-row-hidden')) return;
+            if (tr.classList.contains('report-row-hidden') || tr.classList.contains('report-page-hidden')) return;
             const row = [];
             tr.querySelectorAll('th, td').forEach(cell => {
                 const raw = cell.innerText.trim();
-                // try to parse number (remove commas + parens)
-                const isParen = raw.startsWith('(') && raw.endsWith(')');
-                const cleaned = raw.replace(/,/g, '').replace(/^\((.+)\)$/, '-$1');
-                const num = parseFloat(cleaned);
-                row.push(!isNaN(num) && raw !== '' ? num : raw);
+                // Only convert to number if the ENTIRE cell is numeric (not dates like 2026-04-30)
+                const isStrictNum = /^-?[\d,]+(\.\d+)?$/.test(raw) || /^\([\d,]+(\.\d+)?\)$/.test(raw);
+                if (isStrictNum && raw !== '') {
+                    const cleaned = raw.replace(/,/g, '').replace(/^\((.+)\)$/, '-$1');
+                    row.push(parseFloat(cleaned));
+                } else {
+                    row.push(raw);
+                }
             });
             wsData.push(row);
         });
