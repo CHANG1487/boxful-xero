@@ -83,7 +83,7 @@ onAuthStateChanged(auth, async (user) => {
 async function loadXeroTenants(user) {
     try {
         const token = await user.getIdToken();
-        const res = await fetch('${API}/xero/tenants', {
+        const res = await fetch(`${API}/xero/tenants`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -182,7 +182,7 @@ window.connectXero = async () => {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch('${API}/xero/auth-url', {
+        const res = await fetch(`${API}/xero/auth-url`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -206,7 +206,7 @@ export async function switchTenant(tenantId) {
         const user = auth.currentUser;
         if (!user) return null;
         const token = await user.getIdToken();
-        const res = await fetch('${API}/xero/tenant/select', {
+        const res = await fetch(`${API}/xero/tenant/select`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ tenantId })
