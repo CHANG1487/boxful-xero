@@ -297,16 +297,8 @@ app.get('/reports/account-transactions', verifyAuth, async (req, res) => {
 // 科目明細（以 Invoices API 重組，不需要 AccountTransactions 報表 scope）
 app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
     try {
-        const { accountID, fromDate, toDate } = req.query;
-
-        let targetAccountCode = null;
-        let targetAccountName = null;
-        if (accountID) {
-            const { xero, tenantId } = await getValidXeroClient();
-            const resp = await xero.accountingApi.getAccount(tenantId, accountID);
-            const account = resp.body.accounts?.[0];
-            if (account) { targetAccountCode = account.code; targetAccountName = account.name; }
-        }
+        const { accountCodes, fromDate, toDate } = req.query;
+        const targetCodes = accountCodes ? accountCodes.split(',').filter(Boolean) : [];
 
         // Build Xero where clause for date range (DateTime() format required)
         const conds = ['Status!="DELETED"', 'Status!="VOIDED"'];
@@ -341,7 +333,7 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
             const ref     = [inv.InvoiceNumber, inv.Reference].filter(Boolean).join(' / ');
 
             for (const li of (inv.LineItems || [])) {
-                if (targetAccountCode && li.AccountCode !== targetAccountCode) continue;
+                if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
                 const net = Number(li.LineAmount || 0);
                 totalNet += net;
                 dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
@@ -349,7 +341,7 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
         }
         dataRows.sort((a, b) => a.date.localeCompare(b.date));
 
-        const label = targetAccountCode ? `${targetAccountCode} ${targetAccountName}` : '全部科目';
+        const label = targetCodes.length ? targetCodes.join(', ') : '全部科目';
         const report = {
             ReportName: `科目明細 — ${label}`,
             ReportDate: `${fromDate || ''} ～ ${toDate || ''}`,
