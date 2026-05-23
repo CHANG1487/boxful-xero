@@ -3,28 +3,26 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
 const { XeroClient } = require('xero-node');
 
 admin.initializeApp();
 
-const TOKEN_FILE = path.join(__dirname, '.xero-tokens.json');
+const db = admin.firestore();
+const TOKEN_DOC = db.collection('xeroTokens').doc('default');
 
-function readTokenStore() {
+async function readTokenStore() {
     try {
-        if (fs.existsSync(TOKEN_FILE)) {
-            return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
-        }
+        const snap = await TOKEN_DOC.get();
+        return snap.exists ? snap.data() : {};
     } catch (e) {
         console.error('Error reading token store:', e);
+        return {};
     }
-    return {};
 }
 
-function writeTokenStore(data) {
+async function writeTokenStore(data) {
     try {
-        fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+        await TOKEN_DOC.set(data);
     } catch (e) {
         console.error('Error writing token store:', e);
     }
@@ -125,13 +123,13 @@ app.get('/auth/xero/callback', async (req, res) => {
             return res.redirect(`${frontendUrl}/?xero=error&reason=no_tenant`);
         }
 
-        const existing = normalizeTenantStore(readTokenStore());
+        const existing = normalizeTenantStore(await readTokenStore());
         const preservedId = existing.activeTenantId && tenants.find(t => t.tenantId === existing.activeTenantId)
             ? existing.activeTenantId
             : tenants[0].tenantId;
         const activeTenant = tenants.find(t => t.tenantId === preservedId);
 
-        writeTokenStore({
+        await writeTokenStore({
             tokenSet,
             tenants,
             activeTenantId: activeTenant.tenantId,
@@ -147,7 +145,7 @@ app.get('/auth/xero/callback', async (req, res) => {
 });
 
 app.get('/xero/tenants', verifyAuth, async (req, res) => {
-    const store = normalizeTenantStore(readTokenStore());
+    const store = normalizeTenantStore(await readTokenStore());
     if (!store.tokenSet) return res.json({ connected: false });
     res.json({
         connected: true,
@@ -160,10 +158,10 @@ app.get('/xero/tenants', verifyAuth, async (req, res) => {
 app.post('/xero/tenant/select', verifyAuth, async (req, res) => {
     try {
         const { tenantId } = req.body;
-        const store = normalizeTenantStore(readTokenStore());
+        const store = normalizeTenantStore(await readTokenStore());
         const tenant = store.tenants.find(t => t.tenantId === tenantId);
         if (!tenant) return res.status(400).json({ error: 'Tenant not found' });
-        writeTokenStore({ ...store, activeTenantId: tenantId, activeTenantName: tenant.tenantName });
+        await writeTokenStore({ ...store, activeTenantId: tenantId, activeTenantName: tenant.tenantName });
         res.json({ success: true, tenantName: tenant.tenantName });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -199,13 +197,13 @@ async function refreshXeroToken(tokenSet) {
 }
 
 async function getValidXeroClient() {
-    const store = normalizeTenantStore(readTokenStore());
+    const store = normalizeTenantStore(await readTokenStore());
     if (!store.tokenSet) throw new Error('Xero not connected');
     let tokenSet = store.tokenSet;
     if (isAccessTokenExpired(tokenSet)) {
         console.log('Access token expired, refreshing...');
         tokenSet = await refreshXeroToken(tokenSet);
-        writeTokenStore({ ...store, tokenSet, updatedAt: new Date().toISOString() });
+        await writeTokenStore({ ...store, tokenSet, updatedAt: new Date().toISOString() });
     }
     xero.setTokenSet(tokenSet);
     return { xero, tenantId: store.activeTenantId, tenantName: store.activeTenantName };
