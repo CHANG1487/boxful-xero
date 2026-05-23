@@ -405,7 +405,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const keyword = document.getElementById('at-keyword')?.value.trim() || '';
         const params = new URLSearchParams();
         if (selectedAccountIds.length) {
-            params.set('accountIds', selectedAccountIds.join(','));
+            const codes = selectedAccountIds
+                .map(id => allAccountsData.find(a => a.accountID === id)?.code)
+                .filter(Boolean);
+            if (codes.length) params.set('accountCodes', codes.join(','));
         }
         if (fromDate) params.set('fromDate', fromDate);
         if (toDate) params.set('toDate', toDate);
