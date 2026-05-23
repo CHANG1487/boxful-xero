@@ -178,12 +178,14 @@
                     <h3>科目明細表 (Account Transactions)</h3>
                     <p style="margin-bottom:1rem">依科目查詢交易明細，對應 Xero 的 Account Transactions 報表</p>
                     <div class="report-date-row">
-                        <div class="date-group">
-                            <label>科目</label>
-                            <div class="account-combo" id="account-combo">
-                                <input type="text" id="account-combo-input" class="date-input account-combo-input"
-                                       placeholder="全部科目（可輸入代碼/名稱搜尋）" autocomplete="off">
-                                <input type="hidden" id="account-select" value="">
+                        <div class="date-group" style="align-items:flex-start">
+                            <label>科目（可多選）</label>
+                            <div class="account-combo account-combo-multi" id="account-combo">
+                                <div class="account-tags-wrapper" id="account-tags-wrapper">
+                                    <div id="account-tags"></div>
+                                    <input type="text" id="account-combo-input" class="account-combo-input"
+                                           placeholder="輸入代碼/名稱搜尋" autocomplete="off">
+                                </div>
                                 <div id="account-combo-dropdown" class="account-combo-dropdown" style="display:none"></div>
                             </div>
                         </div>
@@ -192,6 +194,10 @@
                             <input type="date" id="at-from-date" class="date-input">
                             <label>結束日期</label>
                             <input type="date" id="at-to-date" class="date-input">
+                        </div>
+                        <div class="date-group">
+                            <label>關鍵字篩選</label>
+                            <input type="text" id="at-keyword" class="date-input" placeholder="聯絡人、說明、參考..." style="min-width:150px">
                         </div>
                         <button id="run-at-btn" class="primary-btn-sm">查詢明細</button>
                     </div>

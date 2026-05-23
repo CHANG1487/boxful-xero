@@ -170,16 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedReportId = null;
         selectedReportMeta = null;
         allAccountsData = [];
-        selectedAccountId = '';
+        selectedAccountIds = [];
         accountComboSetup = false;
+        const tagsEl = document.getElementById('account-tags');
+        if (tagsEl) tagsEl.innerHTML = '';
         const comboInput = document.getElementById('account-combo-input');
-        if (comboInput) comboInput.value = '';
-        const hiddenInput = document.getElementById('account-select');
-        if (hiddenInput) hiddenInput.value = '';
+        if (comboInput) { comboInput.value = ''; comboInput.placeholder = '輸入代碼/名稱搜尋'; }
         const dropdown = document.getElementById('account-combo-dropdown');
         if (dropdown) dropdown.style.display = 'none';
-        const comboPlaceholder = document.getElementById('account-combo-input');
-        if (comboPlaceholder) comboPlaceholder.placeholder = '全部科目（可輸入代碼/名稱搜尋）';
+        const kwInput = document.getElementById('at-keyword');
+        if (kwInput) kwInput.value = '';
     }
 
     window.onTenantChanged = clearAllPanelData;
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Account Transactions (科目明細表)
     // ==========================================
     let allAccountsData = [];
-    let selectedAccountId = '';
+    let selectedAccountIds = [];
     let accountComboSetup = false;
 
     async function loadAccounts() {
@@ -312,19 +312,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const accounts = await res.json();
             if (!res.ok) throw new Error(accounts.error || res.statusText);
 
-            allAccountsData = [
-                { accountID: '', display: '全部科目（不篩選）', searchText: '全部' },
-                ...accounts.map(a => ({
-                    accountID: a.accountID,
-                    display: `${a.code ? a.code + ' - ' : ''}${a.name}`,
-                    searchText: `${a.code || ''} ${a.name || ''}`.toLowerCase()
-                }))
-            ];
-            if (comboInput) comboInput.placeholder = '全部科目（可輸入代碼/名稱搜尋）';
+            allAccountsData = accounts.map(a => ({
+                accountID: a.accountID,
+                code: a.code || '',
+                name: a.name || '',
+                display: `${a.code ? a.code + ' - ' : ''}${a.name}`,
+                searchText: `${a.code || ''} ${a.name || ''}`.toLowerCase()
+            }));
+            if (comboInput) comboInput.placeholder = '輸入代碼/名稱搜尋';
             setupAccountCombo();
         } catch (err) {
             if (comboInput) comboInput.placeholder = `載入失敗：${err.message}`;
         }
+    }
+
+    function renderAccountTags() {
+        const tagsEl = document.getElementById('account-tags');
+        if (!tagsEl) return;
+        tagsEl.innerHTML = selectedAccountIds.map(id => {
+            const acc = allAccountsData.find(a => a.accountID === id);
+            const label = acc ? (acc.code || acc.name) : id;
+            return `<span class="account-tag">${label}<button class="account-tag-remove" data-id="${id}" title="移除">×</button></span>`;
+        }).join('');
+        tagsEl.querySelectorAll('.account-tag-remove').forEach(btn => {
+            btn.addEventListener('mousedown', e => {
+                e.preventDefault();
+                selectedAccountIds = selectedAccountIds.filter(id => id !== btn.dataset.id);
+                renderAccountTags();
+                renderAccountDropdown(document.getElementById('account-combo-input')?.value || '');
+            });
+        });
     }
 
     function setupAccountCombo() {
@@ -332,25 +349,22 @@ document.addEventListener('DOMContentLoaded', () => {
         accountComboSetup = true;
         const input = document.getElementById('account-combo-input');
         const dropdown = document.getElementById('account-combo-dropdown');
+        const wrapper = document.getElementById('account-tags-wrapper');
         if (!input || !dropdown) return;
+
+        wrapper?.addEventListener('click', () => input.focus());
 
         input.addEventListener('focus', () => {
             renderAccountDropdown(input.value);
             dropdown.style.display = 'block';
         });
-
         input.addEventListener('input', () => {
             renderAccountDropdown(input.value);
             dropdown.style.display = 'block';
         });
-
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', e => {
             const combo = document.getElementById('account-combo');
-            if (combo && !combo.contains(e.target)) {
-                dropdown.style.display = 'none';
-                const found = allAccountsData.find(a => a.accountID === selectedAccountId);
-                input.value = found && found.accountID ? found.display : '';
-            }
+            if (combo && !combo.contains(e.target)) dropdown.style.display = 'none';
         });
     }
 
@@ -359,44 +373,52 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dropdown) return;
         const q = query.toLowerCase();
         const filtered = allAccountsData.filter(a =>
-            !q || a.searchText.includes(q) || a.display.toLowerCase().includes(q)
+            !selectedAccountIds.includes(a.accountID) &&
+            (!q || a.searchText.includes(q) || a.display.toLowerCase().includes(q))
         );
         if (!filtered.length) {
             dropdown.innerHTML = '<div class="account-combo-option no-result">無符合結果</div>';
             return;
         }
         dropdown.innerHTML = filtered.map(a => `
-            <div class="account-combo-option ${a.accountID === selectedAccountId ? 'selected' : ''}"
-                 data-id="${a.accountID}" data-display="${a.display.replace(/"/g, '&quot;')}">
+            <div class="account-combo-option" data-id="${a.accountID}">
                 ${a.display}
             </div>
         `).join('');
         dropdown.querySelectorAll('.account-combo-option[data-id]').forEach(opt => {
-            opt.addEventListener('mousedown', (e) => {
+            opt.addEventListener('mousedown', e => {
                 e.preventDefault();
-                selectedAccountId = opt.dataset.id;
-                document.getElementById('account-combo-input').value = opt.dataset.id ? opt.dataset.display : '';
-                document.getElementById('account-select').value = opt.dataset.id;
-                dropdown.style.display = 'none';
+                if (!selectedAccountIds.includes(opt.dataset.id)) {
+                    selectedAccountIds.push(opt.dataset.id);
+                    renderAccountTags();
+                }
+                const input = document.getElementById('account-combo-input');
+                if (input) input.value = '';
+                renderAccountDropdown('');
             });
         });
     }
 
     document.getElementById('run-at-btn')?.addEventListener('click', async () => {
-        const accountID = document.getElementById('account-select').value;
         const fromDate = atFromDateEl.value;
         const toDate = atToDateEl.value;
+        const keyword = document.getElementById('at-keyword')?.value.trim() || '';
         const params = new URLSearchParams();
-        if (accountID) params.set('accountID', accountID);
+        if (selectedAccountIds.length) {
+            const codes = selectedAccountIds
+                .map(id => allAccountsData.find(a => a.accountID === id)?.code)
+                .filter(Boolean);
+            if (codes.length) params.set('accountCodes', codes.join(','));
+        }
         if (fromDate) params.set('fromDate', fromDate);
         if (toDate) params.set('toDate', toDate);
-        await fetchAndRenderReport(`${API}/reports/account-ledger?${params}`);
+        await fetchAndRenderReport(`${API}/reports/account-ledger?${params}`, keyword);
     });
 
     // ==========================================
     // Shared Report Fetch & Render
     // ==========================================
-    async function fetchAndRenderReport(url) {
+    async function fetchAndRenderReport(url, keyword = '') {
         const loadingEl = document.getElementById('report-loading');
         const errorEl = document.getElementById('report-error');
         const resultCard = document.getElementById('report-result-card');
@@ -413,6 +435,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             loadingEl.style.display = 'none';
             renderReport(report);
+            if (keyword) {
+                applySearch(keyword);
+                const searchEl = document.getElementById('report-search');
+                if (searchEl) searchEl.value = keyword;
+            }
         } catch (err) {
             loadingEl.style.display = 'none';
             errorEl.style.display = 'block';
