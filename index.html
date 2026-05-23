@@ -217,6 +217,26 @@
                     </div>
                     <div id="report-header-info" class="report-header-info"></div>
                     <div class="table-container" id="report-table-container"></div>
+                    <div id="pagination-bar" style="display:none">
+                        <div class="pagination-left">
+                            <span id="pagination-info"></span>
+                        </div>
+                        <div class="pagination-center">
+                            <button id="page-first" class="page-btn" title="第一頁">«</button>
+                            <button id="page-prev"  class="page-btn" title="上一頁">‹</button>
+                            <span id="page-indicator" class="page-indicator"></span>
+                            <button id="page-next"  class="page-btn" title="下一頁">›</button>
+                            <button id="page-last"  class="page-btn" title="最後頁">»</button>
+                        </div>
+                        <div class="pagination-right">
+                            <select id="rows-per-page" class="rows-select">
+                                <option value="50" selected>50 筆/頁</option>
+                                <option value="100">100 筆/頁</option>
+                                <option value="200">200 筆/頁</option>
+                                <option value="500">500 筆/頁</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -264,7 +284,7 @@
     </div>
 </div>
 
-<script type="module" src="js/firebase-init.js?v=4"></script>
-<script type="module" src="js/app.js?v=4"></script>
+<script type="module" src="js/firebase-init.js?v=5"></script>
+<script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>

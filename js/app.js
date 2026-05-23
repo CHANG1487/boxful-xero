@@ -159,6 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('report-error').style.display = 'none';
         document.getElementById('report-search').value = '';
         document.getElementById('search-count').innerText = '';
+        const paginationBar = document.getElementById('pagination-bar');
+        if (paginationBar) paginationBar.style.display = 'none';
+        currentPage = 1;
         document.getElementById('report-table-container').innerHTML = '';
         document.getElementById('report-header-info').innerText = '';
 
@@ -473,9 +476,10 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(table);
 
         document.getElementById('report-result-card').style.display = 'block';
+        currentPage = 1;
         const searchEl = document.getElementById('report-search');
         if (searchEl) { searchEl.value = ''; }
-        applySearch('');
+        applySearch('');   // also calls applyPagination
     }
 
     function exportToExcel() {
@@ -577,30 +581,88 @@ document.addEventListener('DOMContentLoaded', () => {
         return neg ? `(${abs})` : (num < 0 ? `-${abs}` : abs);
     }
 
+    // ==========================================
+    // Pagination
+    // ==========================================
+    let currentPage = 1;
+    let rowsPerPage = 50;
+
+    function getDataRows() {
+        return Array.from(document.querySelectorAll('#report-table-container tr')).filter(tr =>
+            !tr.querySelector('th') &&
+            !tr.classList.contains('report-section-header') &&
+            !tr.classList.contains('report-summary-row')
+        );
+    }
+
+    function applyPagination() {
+        const allData = getDataRows();
+        const searchVisible = allData.filter(tr => !tr.classList.contains('report-row-hidden'));
+        const total = searchVisible.length;
+        const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const start = (currentPage - 1) * rowsPerPage;
+        const end   = start + rowsPerPage;
+
+        allData.forEach(tr => tr.classList.remove('report-page-hidden'));
+        searchVisible.forEach((tr, i) => {
+            if (i < start || i >= end) tr.classList.add('report-page-hidden');
+        });
+
+        const bar = document.getElementById('pagination-bar');
+        if (total === 0) { if (bar) bar.style.display = 'none'; return; }
+        if (bar) bar.style.display = 'flex';
+
+        const pageShowing = Math.min(end, total) - start;
+        document.getElementById('pagination-info').innerText =
+            `共 ${total} 筆，第 ${start + 1}–${Math.min(end, total)} 筆`;
+        document.getElementById('page-indicator').innerText = `${currentPage} / ${totalPages}`;
+
+        document.getElementById('page-first').disabled = currentPage === 1;
+        document.getElementById('page-prev').disabled  = currentPage === 1;
+        document.getElementById('page-next').disabled  = currentPage === totalPages;
+        document.getElementById('page-last').disabled  = currentPage === totalPages;
+    }
+
+    document.getElementById('page-first')?.addEventListener('click', () => { currentPage = 1; applyPagination(); });
+    document.getElementById('page-prev')?.addEventListener('click',  () => { currentPage--; applyPagination(); });
+    document.getElementById('page-next')?.addEventListener('click',  () => { currentPage++; applyPagination(); });
+    document.getElementById('page-last')?.addEventListener('click',  () => {
+        const total = getDataRows().filter(tr => !tr.classList.contains('report-row-hidden')).length;
+        currentPage = Math.max(1, Math.ceil(total / rowsPerPage));
+        applyPagination();
+    });
+    document.getElementById('rows-per-page')?.addEventListener('change', e => {
+        rowsPerPage = parseInt(e.target.value);
+        currentPage = 1;
+        applyPagination();
+    });
+
     document.getElementById('report-search')?.addEventListener('input', e => applySearch(e.target.value));
 
     function applySearch(query) {
         const rows = document.querySelectorAll('#report-table-container tr');
-        const countEl = document.getElementById('search-count');
         if (!query.trim()) {
             rows.forEach(tr => tr.classList.remove('report-row-hidden'));
-            if (countEl) countEl.innerText = '';
-            return;
+        } else {
+            const q = query.toLowerCase();
+            rows.forEach(tr => {
+                const isHeader  = tr.querySelector('th') !== null;
+                const isSection = tr.classList.contains('report-section-header');
+                const searchable = (tr.dataset.searchable || '').toLowerCase();
+                if (isHeader || isSection || searchable.includes(q)) {
+                    tr.classList.remove('report-row-hidden');
+                } else {
+                    tr.classList.add('report-row-hidden');
+                }
+            });
         }
-        const q = query.toLowerCase();
-        let visible = 0;
-        rows.forEach(tr => {
-            const isHeader = tr.querySelector('th') !== null;
-            const isSection = tr.classList.contains('report-section-header');
-            const searchable = (tr.dataset.searchable || '').toLowerCase();
-            if (isHeader || isSection || searchable.includes(q)) {
-                tr.classList.remove('report-row-hidden');
-                if (!isHeader && !isSection) visible++;
-            } else {
-                tr.classList.add('report-row-hidden');
-            }
-        });
-        if (countEl) countEl.innerText = `找到 ${visible} 筆`;
+        currentPage = 1;
+        applyPagination();
+        const total = getDataRows().filter(tr => !tr.classList.contains('report-row-hidden')).length;
+        const countEl = document.getElementById('search-count');
+        if (countEl) countEl.innerText = query.trim() ? `找到 ${total} 筆` : '';
     }
 
     // ==========================================
