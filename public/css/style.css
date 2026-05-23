@@ -479,32 +479,63 @@ h1 {
     font-size: 0.875rem;
 }
 
+.report-table thead tr,
+.report-table tr:first-child {
+    background: rgba(79, 70, 229, 0.18);
+}
+
 .report-table th {
     text-align: left;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--border);
-    color: var(--text-muted);
-    font-weight: 500;
+    padding: 0.65rem 1rem;
+    border-bottom: 2px solid rgba(79, 70, 229, 0.5);
+    color: #c7d2fe;
+    font-weight: 600;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .report-table td {
-    padding: 0.45rem 1rem;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.1s;
+}
+
+/* Zebra striping */
+.report-table tbody tr:nth-child(even) td,
+.report-table tr:nth-child(even) td {
+    background: rgba(255,255,255,0.025);
+}
+
+/* Row hover */
+.report-table tr:not(.report-section-header):not(.report-summary-row):hover td {
+    background: rgba(79, 70, 229, 0.12) !important;
 }
 
 .report-section-header td {
-    font-weight: 600;
-    color: white;
-    background: rgba(255,255,255,0.05);
-    padding: 0.6rem 1rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    background: rgba(79, 70, 229, 0.12);
+    padding: 0.55rem 1rem;
     border-bottom: none;
+    border-left: 3px solid var(--primary);
+    letter-spacing: 0.02em;
 }
 
 .report-summary-row td {
-    font-weight: 600;
-    border-top: 1px solid var(--border);
-    background: rgba(79, 70, 229, 0.1);
+    font-weight: 700;
+    border-top: 2px solid rgba(79, 70, 229, 0.4);
+    background: rgba(79, 70, 229, 0.15);
+    color: #e0e7ff;
 }
+
+/* Ledger-specific: date col no-wrap, Debit green, Credit red */
+.ledger-table td:nth-child(1) { white-space: nowrap; }
+.ledger-table td:nth-child(7):not(:empty) { color: #34d399; font-variant-numeric: tabular-nums; }
+.ledger-table td:nth-child(8):not(:empty) { color: #f87171; font-variant-numeric: tabular-nums; }
+.ledger-table th:nth-child(7) { color: #6ee7b7; }
+.ledger-table th:nth-child(8) { color: #fca5a5; }
 
 .report-row-hidden  { display: none !important; }
 .report-page-hidden { display: none !important; }
@@ -519,7 +550,7 @@ h1 {
 }
 .pagination-left  { font-size: 0.8rem; color: var(--text-muted); }
 .pagination-center { display: flex; align-items: center; gap: 0.35rem; }
-.pagination-right { }
+.pagination-right { display: flex; align-items: center; }
 .page-btn {
     background: rgba(255,255,255,0.06);
     border: 1px solid var(--border);
