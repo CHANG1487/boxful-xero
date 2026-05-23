@@ -329,9 +329,18 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
         ]);
 
         const dataRows = [];
-        let totalNet = 0;
+        let totalDebit = 0, totalCredit = 0;
+
+        const pushRow = (row, rawNet) => {
+            const debit  = rawNet > 0 ? rawNet : 0;
+            const credit = rawNet < 0 ? -rawNet : 0;
+            totalDebit  += debit;
+            totalCredit += credit;
+            dataRows.push({ ...row, debit, credit });
+        };
 
         // Invoices / Bills
+        // Bills (ACCPAY) → Credit; Invoices (ACCREC) → Debit
         for (const inv of invoices) {
             const date    = (inv.DateString || '').substring(0, 10);
             const source  = inv.Type === 'ACCPAY' ? 'Bill' : 'Invoice';
@@ -339,13 +348,14 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
             const ref     = [inv.InvoiceNumber, inv.Reference].filter(Boolean).join(' / ');
             for (const li of (inv.LineItems || [])) {
                 if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
-                const net = Number(li.LineAmount || 0);
-                totalNet += net;
-                dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
+                const amt = Number(li.LineAmount || 0);
+                // Bills are credits (negative), Invoices are debits (positive)
+                const net = inv.Type === 'ACCPAY' ? -amt : amt;
+                pushRow({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '' }, net);
             }
         }
 
-        // Bank Transactions
+        // Bank Transactions: Receive → Debit (+), Spend → Credit (-)
         for (const bt of bankTxns) {
             const date    = (bt.DateString || '').substring(0, 10);
             const source  = bt.Type === 'SPEND' ? 'Spend' : bt.Type === 'RECEIVE' ? 'Receive' : (bt.Type || 'Bank');
@@ -353,21 +363,19 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
             const ref     = bt.Reference || '';
             for (const li of (bt.LineItems || [])) {
                 if (targetCodes.length && !targetCodes.includes(li.AccountCode)) continue;
-                const net = bt.Type === 'SPEND' ? -Number(li.LineAmount || 0) : Number(li.LineAmount || 0);
-                totalNet += net;
-                dataRows.push({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '', net });
+                const amt = Number(li.LineAmount || 0);
+                const net = bt.Type === 'SPEND' ? -amt : amt;
+                pushRow({ date, source, contact, desc: li.Description || '', ref, code: li.AccountCode || '' }, net);
             }
         }
 
-        // Manual Journals
+        // Manual Journals: positive LineAmount → Debit, negative → Credit
         for (const j of journals) {
             const date = (j.DateString || '').substring(0, 10);
             const ref  = j.Narration || '';
             for (const jl of (j.JournalLines || [])) {
                 if (targetCodes.length && !targetCodes.includes(jl.AccountCode)) continue;
-                const net = Number(jl.LineAmount || 0);
-                totalNet += net;
-                dataRows.push({ date, source: 'Journal', contact: '', desc: jl.Description || '', ref, code: jl.AccountCode || '', net });
+                pushRow({ date, source: 'Journal', contact: '', desc: jl.Description || '', ref, code: jl.AccountCode || '' }, Number(jl.LineAmount || 0));
             }
         }
 
@@ -381,20 +389,23 @@ app.get('/reports/account-ledger', verifyAuth, async (req, res) => {
             Rows: [
                 { RowType: 'Header', Cells: [
                     { Value: '日期' }, { Value: '類型' }, { Value: '聯絡人' },
-                    { Value: '說明' }, { Value: '參考' }, { Value: '科目' }, { Value: '金額' }
+                    { Value: '說明' }, { Value: '參考' }, { Value: '科目' },
+                    { Value: 'Debit' }, { Value: 'Credit' }
                 ]},
                 ...dataRows.map(r => ({
                     RowType: 'Row',
                     Cells: [
                         { Value: r.date }, { Value: r.source }, { Value: r.contact },
                         { Value: r.desc }, { Value: r.ref }, { Value: r.code },
-                        { Value: r.net.toFixed(2) }
+                        { Value: r.debit  > 0 ? r.debit.toFixed(2)  : '' },
+                        { Value: r.credit > 0 ? r.credit.toFixed(2) : '' }
                     ]
                 })),
                 { RowType: 'SummaryRow', Cells: [
                     { Value: '合計' }, { Value: '' }, { Value: '' },
                     { Value: '' }, { Value: '' }, { Value: '' },
-                    { Value: totalNet.toFixed(2) }
+                    { Value: totalDebit.toFixed(2) },
+                    { Value: totalCredit.toFixed(2) }
                 ]}
             ]
         };
