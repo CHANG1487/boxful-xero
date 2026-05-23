@@ -1,6 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? '${API}'
+    : 'https://us-central1-xero-frontend.cloudfunctions.net/api';
+
 const firebaseConfig = {
     apiKey: "AIzaSyCa7RTOSEIe5H1ALUrzUGgHKnenQbCvOW0",
     authDomain: "xero-frontend.firebaseapp.com",
@@ -79,7 +83,7 @@ onAuthStateChanged(auth, async (user) => {
 async function loadXeroTenants(user) {
     try {
         const token = await user.getIdToken();
-        const res = await fetch('http://localhost:5001/xero-frontend/us-central1/api/xero/tenants', {
+        const res = await fetch('${API}/xero/tenants', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -178,7 +182,7 @@ window.connectXero = async () => {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch('http://localhost:5001/xero-frontend/us-central1/api/xero/auth-url', {
+        const res = await fetch('${API}/xero/auth-url', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -202,7 +206,7 @@ export async function switchTenant(tenantId) {
         const user = auth.currentUser;
         if (!user) return null;
         const token = await user.getIdToken();
-        const res = await fetch('http://localhost:5001/xero-frontend/us-central1/api/xero/tenant/select', {
+        const res = await fetch('${API}/xero/tenant/select', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ tenantId })
