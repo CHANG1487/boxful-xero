@@ -211,10 +211,9 @@ async function getValidXeroClient() {
 
 // 用 raw fetch 呼叫 Xero API（for reports / accounts endpoints not fully wrapped by xero-node）
 async function xeroFetch(path, queryParams = {}) {
-    const store = normalizeTenantStore(readTokenStore());
     // 呼叫前確認 token 未過期
     await getValidXeroClient();
-    const freshStore = normalizeTenantStore(readTokenStore());
+    const freshStore = normalizeTenantStore(await readTokenStore());
 
     const url = new URL(`https://api.xero.com/api.xro/2.0/${path}`);
     Object.entries(queryParams).forEach(([k, v]) => { if (v) url.searchParams.set(k, v); });
@@ -255,7 +254,7 @@ const TENANT_REPORTS = {
 };
 
 app.get('/reports/list', verifyAuth, async (req, res) => {
-    const store = normalizeTenantStore(readTokenStore());
+    const store = normalizeTenantStore(await readTokenStore());
     const tenantId = store.activeTenantId;
     const list = TENANT_REPORTS[tenantId] || TENANT_REPORTS._default;
     res.json(list);
