@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>憑證列印預覽</title>
+  <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/print.css" />
+</head>
+<body class="print-body">
+  <div class="print-toolbar no-print">
+    <button id="print-btn" class="btn btn-primary">開啟列印對話框</button>
+    <button id="mark-btn" class="btn btn-primary">已列印，標記完成並關閉</button>
+    <button id="cancel-btn" class="btn btn-ghost">取消 / 回上一頁</button>
+    <span id="print-status" class="muted small"></span>
+  </div>
+
+  <div id="sheets"></div>
+
+  <script src="/js/print.js"></script>
+</body>
+</html>

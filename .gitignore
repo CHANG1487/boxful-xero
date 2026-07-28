@@ -1,0 +1,13 @@
+node_modules/
+
+# 環境變數 / 敏感檔（Xero Client Secret 等）
+.env
+.env.local
+.env.*.local
+
+# SQLite 資料檔（會 auto-create；印製狀態、session、refresh token 都在裡面）
+data/
+
+# 系統 / log
+.DS_Store
+*.log

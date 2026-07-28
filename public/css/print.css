@@ -1,0 +1,141 @@
+/* A4 直向、上下切一刀（每張 A5 直式）
+   A4 = 210mm x 297mm，中一刀後每張憑證 = 210mm x 148.5mm */
+
+.voucher-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.voucher {
+  width: 210mm;
+  height: 148.5mm;
+  padding: 8mm 12mm;
+  box-sizing: border-box;
+  border-bottom: 1px dashed #444;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.voucher:last-child {
+  border-bottom: none;
+}
+
+.voucher-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4mm;
+  letter-spacing: 4px;
+}
+
+.voucher-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm 8mm;
+  font-size: 11px;
+  margin-bottom: 3mm;
+}
+
+.voucher-meta .field {
+  display: flex;
+  gap: 4mm;
+}
+
+.voucher-meta .field .label {
+  color: #444;
+  min-width: 16mm;
+}
+
+.voucher-meta .field .value {
+  font-weight: 600;
+  flex: 1;
+  border-bottom: 1px dotted #999;
+  padding-bottom: 1px;
+}
+
+.voucher-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  flex: 1;
+  table-layout: fixed;
+}
+
+.voucher-lines th,
+.voucher-lines td {
+  border: 1px solid #333;
+  padding: 2px 4px;
+  vertical-align: top;
+}
+
+.voucher-lines thead th {
+  background: #f0f0f0;
+  font-weight: 600;
+  text-align: center;
+}
+
+.voucher-lines td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.voucher-lines tfoot td {
+  font-weight: 700;
+  background: #fafafa;
+}
+
+.voucher-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 3mm;
+  font-size: 10.5px;
+}
+
+.voucher-footer .signatures {
+  display: flex;
+  gap: 8mm;
+}
+
+.voucher-footer .signatures .sig-cell {
+  min-width: 22mm;
+  text-align: center;
+}
+
+.voucher-footer .signatures .sig-cell .label {
+  color: #444;
+  border-top: 1px solid #444;
+  padding-top: 1mm;
+  display: block;
+}
+
+.voucher-footer .notes {
+  color: #444;
+  font-size: 10px;
+  max-width: 60%;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  html, body { margin: 0; background: #fff; }
+  .no-print { display: none !important; }
+  #sheets { padding: 0; gap: 0; }
+  .voucher-sheet {
+    box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+  }
+  .voucher-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}

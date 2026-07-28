@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xero 憑證列印平台</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="sticky-stack">
+    <header class="app-header">
+      <div class="brand">Xero 憑證列印</div>
+      <div class="header-right">
+        <label class="tenant-picker">
+          公司：
+          <select id="tenant-select"></select>
+        </label>
+        <button id="logout-btn" class="btn btn-ghost">登出</button>
+      </div>
+    </header>
+
+    <section class="toolbar">
+      <div class="toolbar-left">
+        <button id="refresh-btn" class="btn btn-primary">重新整理</button>
+        <label class="checkbox">
+          <input type="checkbox" id="include-printed" />
+          顯示已列印
+        </label>
+        <span id="refresh-status" class="muted small"></span>
+      </div>
+      <div class="toolbar-right">
+        <span id="selection-count" class="muted">已選取 0 張</span>
+        <button id="preview-btn" class="btn btn-primary" disabled>預覽列印</button>
+      </div>
+    </section>
+
+    <section class="filter-bar">
+      <div class="filter-cell">
+        <label>類型</label>
+        <select id="f-type">
+          <option value="">全部</option>
+          <option value="BILL">BILL</option>
+          <option value="MJ">MJ</option>
+        </select>
+      </div>
+      <div class="filter-cell filter-cell-range">
+        <label>日期</label>
+        <div class="range">
+          <input type="date" id="f-date-from" />
+          <span class="dash">~</span>
+          <input type="date" id="f-date-to" />
+        </div>
+      </div>
+      <div class="filter-cell">
+        <label>編號</label>
+        <input type="search" id="f-number" placeholder="編號 / Ref" />
+      </div>
+      <div class="filter-cell">
+        <label>廠商</label>
+        <input type="search" id="f-contact" placeholder="Contact" />
+      </div>
+      <div class="filter-cell">
+        <label>摘要</label>
+        <input type="search" id="f-narration" placeholder="Narration / Ref" />
+      </div>
+      <div class="filter-cell filter-cell-range">
+        <label>金額</label>
+        <div class="range">
+          <input type="number" id="f-amount-min" step="0.01" placeholder="最小" />
+          <span class="dash">~</span>
+          <input type="number" id="f-amount-max" step="0.01" placeholder="最大" />
+        </div>
+      </div>
+      <div class="filter-cell">
+        <label>狀態</label>
+        <select id="f-status">
+          <option value="">全部</option>
+          <option value="DRAFT">DRAFT</option>
+          <option value="SUBMITTED">SUBMITTED</option>
+          <option value="AUTHORISED">AUTHORISED</option>
+          <option value="PAID">PAID</option>
+          <option value="POSTED">POSTED</option>
+        </select>
+      </div>
+      <div class="filter-cell">
+        <label>列印狀態</label>
+        <select id="f-printed">
+          <option value="">全部</option>
+          <option value="unprinted">未列印</option>
+          <option value="printed">已列印</option>
+        </select>
+      </div>
+      <div class="filter-cell filter-cell-actions">
+        <button id="clear-filters" class="btn btn-ghost btn-sm">清除條件</button>
+      </div>
+    </section>
+
+    <section class="table-header-wrap">
+      <table class="voucher-table voucher-table-header">
+        <colgroup>
+          <col class="col-check" />
+          <col class="col-type" />
+          <col class="col-date" />
+          <col class="col-number" />
+          <col class="col-contact" />
+          <col class="col-amount" />
+          <col class="col-status" />
+          <col class="col-printed" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" id="select-all" /></th>
+            <th class="col-type">類型</th>
+            <th class="col-date">日期</th>
+            <th class="col-number">編號 / Ref</th>
+            <th class="col-contact">廠商 / 摘要</th>
+            <th class="col-amount">金額</th>
+            <th class="col-status">狀態</th>
+            <th class="col-printed">列印狀態</th>
+          </tr>
+        </thead>
+      </table>
+    </section>
+  </div>
+
+  <main class="app-main">
+    <section class="table-wrap">
+      <table class="voucher-table voucher-table-body">
+        <colgroup>
+          <col class="col-check" />
+          <col class="col-type" />
+          <col class="col-date" />
+          <col class="col-number" />
+          <col class="col-contact" />
+          <col class="col-amount" />
+          <col class="col-status" />
+          <col class="col-printed" />
+        </colgroup>
+        <tbody id="voucher-tbody">
+          <tr class="empty-row"><td colspan="8" class="muted">尚未載入資料。請點【重新整理】。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="pagination-bar">
+      <span id="pagination-info" class="muted small">—</span>
+      <div class="pagination-nav">
+        <button id="page-prev" class="btn btn-ghost btn-sm">‹ 上一頁</button>
+        <span id="page-numbers" class="page-numbers"></span>
+        <button id="page-next" class="btn btn-ghost btn-sm">下一頁 ›</button>
+      </div>
+      <label class="page-size">
+        每頁
+        <select id="page-size">
+          <option value="10" selected>10</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="500">500</option>
+        </select>
+        筆
+      </label>
+    </section>
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

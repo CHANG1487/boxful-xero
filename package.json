@@ -1,0 +1,23 @@
+{
+  "name": "xero-print",
+  "version": "0.1.0",
+  "description": "Xero 中文會計憑證列印平台 (Bills + Manual Journals)",
+  "private": true,
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "better-sqlite3-session-store": "^0.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-session": "^1.18.0",
+    "xero-node": "^9.0.0"
+  }
+}
