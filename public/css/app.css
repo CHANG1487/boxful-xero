@@ -145,13 +145,13 @@ html, body {
 }
 
 .filter-cell-actions {
-  justify-content: flex-end;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .filter-cell-actions .btn {
-  align-self: end;
-  width: 100%;
+  flex: 1;
 }
 
 /* ----- table (header table + body table share column widths via colgroup) ----- */
@@ -211,11 +211,9 @@ col.col-number,  th.col-number,  td.col-number  { width: 160px; }
 col.col-contact, th.col-contact, td.col-contact { }
 col.col-amount,  th.col-amount,  td.col-amount  { width: 140px; }
 col.col-status,  th.col-status,  td.col-status  { width: 110px; }
-col.col-printed, th.col-printed, td.col-printed { width: 110px; }
 
 td.col-check    { text-align: center; }
 td.col-amount   { text-align: right; font-variant-numeric: tabular-nums; }
-td.col-printed  { text-align: center; }
 
 /* ----- badges ----- */
 .type-badge {
@@ -228,20 +226,6 @@ td.col-printed  { text-align: center; }
 
 .type-badge.bill { background: #dbeafe; color: #1d4ed8; }
 .type-badge.mj   { background: #fef3c7; color: #92400e; }
-
-.printed-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  background: #dcfce7;
-  color: #166534;
-}
-
-.printed-tag.cutoff {
-  background: #e5e7eb;
-  color: #4b5563;
-}
 
 /* ----- pagination bar ----- */
 .pagination-bar {

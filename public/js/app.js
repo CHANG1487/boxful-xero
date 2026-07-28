@@ -6,9 +6,8 @@ const state = {
   activeTenantId: null,
   items: [],
   selected: new Set(),
-  includePrinted: false,
   refreshedAt: null,
-  cutoffDate: null,
+  loaded: false,
   filters: {
     type: '',
     dateFrom: '',
@@ -19,7 +18,6 @@ const state = {
     amountMin: null,
     amountMax: null,
     status: '',
-    printed: '',
   },
   page: 1,
   pageSize: 10,
@@ -29,7 +27,6 @@ const els = {
   tenantSelect: document.getElementById('tenant-select'),
   logoutBtn: document.getElementById('logout-btn'),
   refreshBtn: document.getElementById('refresh-btn'),
-  includePrinted: document.getElementById('include-printed'),
   refreshStatus: document.getElementById('refresh-status'),
   selectionCount: document.getElementById('selection-count'),
   previewBtn: document.getElementById('preview-btn'),
@@ -45,7 +42,7 @@ const els = {
   fAmountMin: document.getElementById('f-amount-min'),
   fAmountMax: document.getElementById('f-amount-max'),
   fStatus: document.getElementById('f-status'),
-  fPrinted: document.getElementById('f-printed'),
+  searchBtn: document.getElementById('search-btn'),
   clearFilters: document.getElementById('clear-filters'),
   // pagination
   pageInfo: document.getElementById('pagination-info'),
@@ -106,7 +103,7 @@ async function init() {
 
     renderTenants();
     bindEvents();
-    await refreshVouchers();
+    applyAndRender();
   } catch (err) {
     console.error(err);
   }
@@ -133,8 +130,10 @@ function bindEvents() {
     });
     state.activeTenantId = tenantId;
     state.selected.clear();
+    state.items = [];
+    state.loaded = false;
     state.page = 1;
-    await refreshVouchers();
+    applyAndRender();
   });
 
   els.logoutBtn.addEventListener('click', async () => {
@@ -144,8 +143,7 @@ function bindEvents() {
 
   els.refreshBtn.addEventListener('click', () => refreshVouchers());
 
-  els.includePrinted.addEventListener('change', () => {
-    state.includePrinted = els.includePrinted.checked;
+  els.searchBtn.addEventListener('click', () => {
     state.page = 1;
     refreshVouchers();
   });
@@ -189,17 +187,16 @@ function bindEvents() {
   bindFilter(els.fAmountMin, 'amountMin', (v) => (v === '' ? null : Number(v)));
   bindFilter(els.fAmountMax, 'amountMax', (v) => (v === '' ? null : Number(v)));
   bindFilter(els.fStatus, 'status');
-  bindFilter(els.fPrinted, 'printed');
 
   els.clearFilters.addEventListener('click', () => {
     state.filters = {
       type: '', dateFrom: '', dateTo: '', number: '',
       contact: '', narration: '', amountMin: null, amountMax: null,
-      status: '', printed: '',
+      status: '',
     };
     for (const el of [
       els.fType, els.fDateFrom, els.fDateTo, els.fNumber, els.fContact,
-      els.fNarration, els.fAmountMin, els.fAmountMax, els.fStatus, els.fPrinted,
+      els.fNarration, els.fAmountMin, els.fAmountMax, els.fStatus,
     ]) el.value = '';
     state.page = 1;
     applyAndRender();
@@ -231,12 +228,12 @@ function bindEvents() {
 
 async function refreshVouchers() {
   els.refreshBtn.disabled = true;
+  els.searchBtn.disabled = true;
   els.refreshStatus.textContent = '讀取中…';
   try {
-    const q = state.includePrinted ? '?includePrinted=1' : '';
-    const data = await api('/api/vouchers' + q);
+    const data = await api('/api/vouchers');
     state.items = data.items;
-    state.cutoffDate = data.cutoffDate || null;
+    state.loaded = true;
     state.refreshedAt = new Date(data.refreshedAt);
     state.selected = new Set(
       Array.from(state.selected).filter((k) =>
@@ -244,16 +241,14 @@ async function refreshVouchers() {
       )
     );
     applyAndRender();
-    const cutoffNote = state.cutoffDate
-      ? `（切點 ${state.cutoffDate}，早於此日視為已列印）`
-      : '';
     els.refreshStatus.textContent = `最後更新：${state.refreshedAt.toLocaleTimeString(
       'zh-Hant'
-    )}${cutoffNote}`;
+    )}`;
   } catch (err) {
     els.refreshStatus.textContent = '讀取失敗：' + err.message;
   } finally {
     els.refreshBtn.disabled = false;
+    els.searchBtn.disabled = false;
   }
 }
 
@@ -272,8 +267,6 @@ function getFilteredItems() {
     if (f.amountMin != null && Number(v.total || 0) < f.amountMin) return false;
     if (f.amountMax != null && Number(v.total || 0) > f.amountMax) return false;
     if (f.status && v.status !== f.status) return false;
-    if (f.printed === 'unprinted' && v.printed) return false;
-    if (f.printed === 'printed' && !v.printed) return false;
     return true;
   });
 }
@@ -301,11 +294,11 @@ function renderRows() {
 
   if (!pageItems.length) {
     const msg = filteredCount === 0
-      ? (state.items.length === 0
-        ? '尚未載入資料。請點【重新整理】。'
-        : '沒有符合條件的憑證。')
+      ? (state.loaded
+        ? '沒有符合條件的憑證。'
+        : '請於上方輸入條件後按【查詢】載入憑證。')
       : '此頁無資料。';
-    els.tbody.innerHTML = `<tr class="empty-row"><td colspan="8" class="muted">${msg}</td></tr>`;
+    els.tbody.innerHTML = `<tr class="empty-row"><td colspan="7" class="muted">${msg}</td></tr>`;
     return;
   }
 
@@ -317,13 +310,6 @@ function renderRows() {
       v.type === 'BILL'
         ? '<span class="type-badge bill">BILL</span>'
         : '<span class="type-badge mj">MJ</span>';
-    let printed;
-    if (v.printed) {
-      const isCutoff = v.printedReason === 'before-cutoff';
-      printed = `<span class="printed-tag ${isCutoff ? 'cutoff' : ''}">${isCutoff ? '早於啟用日' : '已列印'}</span>`;
-    } else {
-      printed = '<span class="muted small">未列印</span>';
-    }
     return `
       <tr class="${rowCls}" data-key="${key}">
         <td class="col-check"><input type="checkbox" ${checked} /></td>
@@ -333,7 +319,6 @@ function renderRows() {
         <td class="col-contact">${escapeHtml(v.contact || v.reference || '-')}</td>
         <td class="col-amount">${fmtMoney(v.total, v.currency)}</td>
         <td class="col-status">${escapeHtml(v.status || '')}</td>
-        <td class="col-printed">${printed}</td>
       </tr>
     `;
   }).join('');

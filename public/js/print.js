@@ -14,7 +14,6 @@ const items = idsParam
 const els = {
   sheets: document.getElementById('sheets'),
   printBtn: document.getElementById('print-btn'),
-  markBtn: document.getElementById('mark-btn'),
   cancelBtn: document.getElementById('cancel-btn'),
   status: document.getElementById('print-status'),
 };
@@ -46,6 +45,12 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function fmtAccount(code, accounts) {
+  if (!code) return '';
+  const name = accounts && accounts[code];
+  return name ? `${code} ${name}` : String(code);
+}
+
 async function fetchDetail(item) {
   const r = await fetch(`/api/vouchers/${item.type}/${encodeURIComponent(item.id)}`, {
     credentials: 'same-origin',
@@ -54,22 +59,25 @@ async function fetchDetail(item) {
   return r.json();
 }
 
-function renderBill(inv) {
+function renderBill(inv, accounts) {
   const lines = inv.lineItems || [];
   const total = inv.total != null ? inv.total : 0;
   const tax = inv.totalTax != null ? inv.totalTax : 0;
   const sub = inv.subTotal != null ? inv.subTotal : total - tax;
 
   const rows = lines
-    .map((l) => `
+    .map((l) => {
+      return `
       <tr>
-        <td>${escapeHtml((l.accountCode || '') + (l.accountCode && l.description ? ' ' : '') + (l.description || ''))}</td>
+        <td>${escapeHtml(l.description || '')}</td>
+        <td>${escapeHtml(fmtAccount(l.accountCode, accounts))}</td>
         <td class="num">${l.quantity != null ? l.quantity : ''}</td>
         <td class="num">${l.unitAmount != null ? fmtMoney(l.unitAmount) : ''}</td>
         <td class="num">${l.taxAmount != null ? fmtMoney(l.taxAmount) : ''}</td>
         <td class="num">${l.lineAmount != null ? fmtMoney(l.lineAmount) : ''}</td>
       </tr>
-    `)
+    `;
+    })
     .join('');
 
   return `
@@ -86,18 +94,19 @@ function renderBill(inv) {
       <table class="voucher-lines">
         <thead>
           <tr>
-            <th style="width:44%">帳戶 / 摘要</th>
+            <th style="width:22%">摘要</th>
+            <th style="width:22%">科目</th>
             <th style="width:10%">數量</th>
             <th style="width:15%">單價</th>
             <th style="width:14%">稅額</th>
             <th style="width:17%">小計</th>
           </tr>
         </thead>
-        <tbody>${rows || `<tr><td colspan="5" style="text-align:center;color:#999">—</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#999">—</td></tr>`}</tbody>
         <tfoot>
-          <tr><td colspan="4" class="num">未稅金額</td><td class="num">${fmtMoney(sub)}</td></tr>
-          <tr><td colspan="4" class="num">稅額</td><td class="num">${fmtMoney(tax)}</td></tr>
-          <tr><td colspan="4" class="num">總計 (${escapeHtml(inv.currencyCode || '')})</td><td class="num">${fmtMoney(total)}</td></tr>
+          <tr><td colspan="5" class="num">未稅金額</td><td class="num">${fmtMoney(sub)}</td></tr>
+          <tr><td colspan="5" class="num">稅額</td><td class="num">${fmtMoney(tax)}</td></tr>
+          <tr><td colspan="5" class="num">總計 (${escapeHtml(inv.currencyCode || '')})</td><td class="num">${fmtMoney(total)}</td></tr>
         </tfoot>
       </table>
       <div class="voucher-footer">
@@ -112,7 +121,7 @@ function renderBill(inv) {
   `;
 }
 
-function renderMJ(mj) {
+function renderMJ(mj, accounts) {
   const lines = mj.journalLines || [];
   const totalDebit = lines
     .filter((l) => (l.lineAmount || 0) > 0)
@@ -128,8 +137,8 @@ function renderMJ(mj) {
       const credit = amt < 0 ? fmtMoney(Math.abs(amt)) : '';
       return `
         <tr>
-          <td>${escapeHtml(l.accountCode || '')}</td>
           <td>${escapeHtml(l.description || '')}</td>
+          <td>${escapeHtml(fmtAccount(l.accountCode, accounts))}</td>
           <td class="num">${debit}</td>
           <td class="num">${credit}</td>
           <td class="num">${l.taxAmount != null ? fmtMoney(l.taxAmount) : ''}</td>
@@ -149,8 +158,8 @@ function renderMJ(mj) {
       <table class="voucher-lines">
         <thead>
           <tr>
-            <th style="width:14%">科目</th>
-            <th style="width:38%">說明</th>
+            <th style="width:28%">說明</th>
+            <th style="width:24%">科目</th>
             <th style="width:16%">借方</th>
             <th style="width:16%">貸方</th>
             <th style="width:16%">稅額</th>
@@ -178,7 +187,6 @@ async function build() {
     els.sheets.innerHTML =
       '<p style="padding:40px;text-align:center;color:#666">沒有指定要列印的憑證。</p>';
     els.printBtn.disabled = true;
-    els.markBtn.disabled = true;
     return;
   }
   els.status.textContent = '讀取中…';
@@ -186,8 +194,8 @@ async function build() {
   for (const it of items) {
     try {
       const detail = await fetchDetail(it);
-      if (it.type === 'BILL') detailBlocks.push(renderBill(detail.data));
-      else if (it.type === 'MJ') detailBlocks.push(renderMJ(detail.data));
+      if (it.type === 'BILL') detailBlocks.push(renderBill(detail.data, detail.accounts));
+      else if (it.type === 'MJ') detailBlocks.push(renderMJ(detail.data, detail.accounts));
     } catch (err) {
       detailBlocks.push(
         `<div class="voucher"><p style="color:#dc2626">讀取 ${escapeHtml(it.type)}:${escapeHtml(it.id)} 失敗：${escapeHtml(err.message)}</p></div>`
@@ -205,41 +213,10 @@ async function build() {
   els.status.textContent = `共 ${items.length} 張憑證，${sheets.length} 頁 A4`;
 }
 
-async function markPrinted() {
-  const r = await fetch('/api/mark-printed', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || '標記失敗');
-  return data;
-}
-
 els.printBtn.addEventListener('click', () => window.print());
 els.cancelBtn.addEventListener('click', () => {
   if (window.opener) window.close();
   else history.back();
-});
-els.markBtn.addEventListener('click', async () => {
-  els.markBtn.disabled = true;
-  els.status.textContent = '標記中…';
-  try {
-    await markPrinted();
-    els.status.textContent = '已標記完成，視窗即將關閉…';
-    setTimeout(() => {
-      if (window.opener) {
-        try { window.opener.location.reload(); } catch (_) {}
-        window.close();
-      } else {
-        window.location.href = '/';
-      }
-    }, 600);
-  } catch (err) {
-    els.status.textContent = '標記失敗：' + err.message;
-    els.markBtn.disabled = false;
-  }
 });
 
 build();

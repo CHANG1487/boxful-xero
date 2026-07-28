@@ -22,10 +22,6 @@
     <section class="toolbar">
       <div class="toolbar-left">
         <button id="refresh-btn" class="btn btn-primary">重新整理</button>
-        <label class="checkbox">
-          <input type="checkbox" id="include-printed" />
-          顯示已列印
-        </label>
         <span id="refresh-status" class="muted small"></span>
       </div>
       <div class="toolbar-right">
@@ -82,15 +78,8 @@
           <option value="POSTED">POSTED</option>
         </select>
       </div>
-      <div class="filter-cell">
-        <label>列印狀態</label>
-        <select id="f-printed">
-          <option value="">全部</option>
-          <option value="unprinted">未列印</option>
-          <option value="printed">已列印</option>
-        </select>
-      </div>
       <div class="filter-cell filter-cell-actions">
+        <button id="search-btn" class="btn btn-primary btn-sm">查詢</button>
         <button id="clear-filters" class="btn btn-ghost btn-sm">清除條件</button>
       </div>
     </section>
@@ -105,7 +94,6 @@
           <col class="col-contact" />
           <col class="col-amount" />
           <col class="col-status" />
-          <col class="col-printed" />
         </colgroup>
         <thead>
           <tr>
@@ -116,7 +104,6 @@
             <th class="col-contact">廠商 / 摘要</th>
             <th class="col-amount">金額</th>
             <th class="col-status">狀態</th>
-            <th class="col-printed">列印狀態</th>
           </tr>
         </thead>
       </table>
@@ -134,10 +121,9 @@
           <col class="col-contact" />
           <col class="col-amount" />
           <col class="col-status" />
-          <col class="col-printed" />
         </colgroup>
         <tbody id="voucher-tbody">
-          <tr class="empty-row"><td colspan="8" class="muted">尚未載入資料。請點【重新整理】。</td></tr>
+          <tr class="empty-row"><td colspan="7" class="muted">請於上方輸入條件後按【查詢】載入憑證。</td></tr>
         </tbody>
       </table>
     </section>

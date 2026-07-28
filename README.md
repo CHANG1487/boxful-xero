@@ -1,27 +1,26 @@
 # Xero 中文會計憑證列印平台
 
-從 Xero 抓取兩間公司的 **Bills（應付憑單）** 與 **Manual Journals（轉帳傳票）**，選擇後列印中文格式、A4 直向「中一刀」（每張 A4 印兩張 A5 直式憑證）的 PDF，並記錄已列印狀態。
+從 Xero 抓取兩間公司的 **Bills（應付憑單）** 與 **Manual Journals（轉帳傳票）**，選擇後列印中文格式、A4 直向「中一刀」（每張 A4 印兩張 A5 直式憑證）的 PDF。
 
 ## 特色
 
 - Xero OAuth 2.0 登入，多公司（tenant）帳號切換
-- 手動【重新整理】按鈕觸發 Xero API 抓取未列印憑證
-- 已列印狀態存在後端 SQLite（多人共用）
-- 純 HTML/CSS/JS 前端；後端只做 OAuth、API 代理、SQLite 讀寫
+- 主頁進入為空白清單；輸入條件後按【查詢】才向 Xero API 抓取憑證
+- 純 HTML/CSS/JS 前端；後端只做 OAuth、API 代理、refresh token 儲存
 - 列印使用瀏覽器內建 `window.print()`，可直接【儲存為 PDF】
 
 ## 專案結構
 
 ```
 Xero 2.0/
-├── PLAN.md
 ├── package.json
 ├── .env.example
+├── plans/                     # 開發計畫存檔（README + YYYY-MM-DD-*.md）
 ├── server/
 │   ├── index.js
 │   ├── xero-client.js
 │   ├── db.js
-│   └── routes/{auth,tenants,vouchers,print}.js
+│   └── routes/{auth,tenants,vouchers}.js
 ├── public/
 │   ├── index.html
 │   ├── login.html
@@ -74,10 +73,9 @@ npm run dev
 1. 首次進入會導到 `/login.html`
 2. 按【使用 Xero 登入】→ 導到 Xero 官方登入頁
 3. 完成授權後回到主頁，右上角可切換公司
-4. 按【重新整理】從 Xero 抓資料
+4. 在篩選列輸入條件（類型 / 日期 / 廠商…）後按【查詢】從 Xero 抓資料
 5. 勾選要列印的憑證 → 按【預覽列印】會開新分頁
 6. 新分頁按【開啟列印對話框】→ 用瀏覽器【儲存為 PDF】或直接列印
-7. 列印完按【已列印，標記完成並關閉】→ 主頁自動更新（那幾張不再顯示）
 
 ## API 端點速覽
 
@@ -88,9 +86,8 @@ npm run dev
 | POST | `/auth/logout`  | 登出 |
 | GET  | `/api/me`       | 目前登入狀態 + tenants |
 | POST | `/api/tenants/switch` | 切換公司 |
-| GET  | `/api/vouchers` | 未列印憑證清單（`?includePrinted=1` 全部顯示） |
+| GET  | `/api/vouchers` | 憑證清單（Bills + Manual Journals） |
 | GET  | `/api/vouchers/:type/:id` | 單張憑證明細（type = BILL / MJ） |
-| POST | `/api/mark-printed` | 標記為已列印 |
 
 ## 測試建議
 
@@ -104,7 +101,7 @@ npm run dev
 - **登入回來卡在 500 或空白**：檢查 `.env` 的 `XERO_REDIRECT_URI` 是否**完全一致**於 Developer 後台設定
 - **看不到 Bills**：確認 App scopes 有 `accounting.transactions`
 - **看不到 Manual Journals**：確認 App scopes 有 `accounting.journals.read`
-- **切換公司後看到空清單**：可能真的沒有未列印憑證；勾選【顯示已列印】確認
+- **切換公司後看到空清單**：切換後清單會清空，需要重新輸入條件按【查詢】；若查詢後仍為空，可能真的沒有符合條件的憑證，換條件再試
 - **中文字型看起來像宋體/系統預設**：印表機/瀏覽器沒有安裝 PingFang / 微軟正黑；Mac / Windows 通常內建即可
 
 ## 未來擴充（尚未實作）

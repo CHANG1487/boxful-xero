@@ -5,6 +5,9 @@ node_modules/
 .env.local
 .env.*.local
 
+# 給同事的安裝說明（內含 Xero Client Secret，不要 push）
+安裝說明.md
+
 # SQLite 資料檔（會 auto-create；印製狀態、session、refresh token 都在裡面）
 data/
 

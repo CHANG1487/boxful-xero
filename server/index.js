@@ -11,7 +11,6 @@ require('./db');
 const authRouter = require('./routes/auth');
 const tenantsRouter = require('./routes/tenants');
 const vouchersRouter = require('./routes/vouchers');
-const printRouter = require('./routes/print');
 
 const app = express();
 
@@ -43,7 +42,6 @@ app.use(
 app.use('/auth', authRouter);
 app.use('/api', tenantsRouter);
 app.use('/api', vouchersRouter);
-app.use('/api', printRouter);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
