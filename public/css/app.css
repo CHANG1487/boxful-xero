@@ -14,7 +14,7 @@
 
 html, body {
   margin: 0;
-  font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC",
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
                -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--fg);
   background: var(--bg);
