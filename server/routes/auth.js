@@ -1,6 +1,9 @@
+'use strict';
+
 const express = require('express');
-const { buildClient } = require('../xero-client');
+const { buildClient, clientFromSession } = require('../xero-client');
 const { saveRefreshToken } = require('../db');
+const { preloadTenant } = require('../preload');
 
 const router = express.Router();
 
@@ -21,7 +24,7 @@ router.get('/callback', async (req, res, next) => {
 
     const tenants = await client.updateTenants(false);
 
-    req.session.tokenSet = tokenSet;
+    req.session.tokenSet = JSON.parse(JSON.stringify(tokenSet));
     req.session.tenants = tenants.map((t) => ({
       id: t.tenantId,
       name: t.tenantName || t.tenantId,
@@ -39,7 +42,15 @@ router.get('/callback', async (req, res, next) => {
       }
     } catch (_) {}
 
-    res.redirect('/');
+    const activeTenantId = req.session.activeTenantId;
+    req.session.save(() => {
+      res.redirect('/');
+      if (activeTenantId) {
+        clientFromSession(req.session, req)
+          .then((c) => c && preloadTenant(c, activeTenantId))
+          .catch((err) => console.error('[preload after login]', err && err.message));
+      }
+    });
   } catch (err) {
     console.error('OAuth callback failed:', err);
     res.status(500).send(

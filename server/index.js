@@ -30,10 +30,11 @@ app.use(
     secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
       secure: false,
     },
   })
@@ -48,6 +49,13 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use((err, req, res, _next) => {
   console.error(err);
   const status = err.statusCode || err.status || 500;
+  if (status === 429) {
+    return res.status(429).json({
+      error: err.message || 'Xero API rate limit',
+      retryAfter: err.retryAfter || 0,
+      rateLimitProblem: err.rateLimitProblem || 'unknown',
+    });
+  }
   const message =
     (err.response && err.response.body && err.response.body.Message) ||
     err.message ||

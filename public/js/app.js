@@ -97,6 +97,23 @@ const TYPE_BADGE = {
   CN:   { cls: 'cn',   label: '貸項' },
 };
 
+function formatRateLimitMessage(data) {
+  const seconds = Number(data && data.retryAfter) || 0;
+  const problem = data && data.rateLimitProblem;
+  if (problem === 'day') {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `Xero 已達當日 API 配額，約 ${hours} 小時 ${minutes} 分鐘後恢復`;
+    if (minutes > 0) return `Xero 已達當日 API 配額，約 ${minutes} 分鐘後恢復`;
+    return 'Xero 已達當日 API 配額，請稍後再試';
+  }
+  if (problem === 'minute') {
+    const wait = Math.max(1, Math.ceil(seconds || 60));
+    return `Xero 分鐘配額暫時用盡，請 ${wait} 秒後再試`;
+  }
+  return `Xero API 限流：${(data && data.error) || '請稍後再試'}`;
+}
+
 async function api(path, opts) {
   const r = await fetch(path, Object.assign({ credentials: 'same-origin' }, opts || {}));
   if (r.status === 401) {
@@ -104,11 +121,34 @@ async function api(path, opts) {
     throw new Error('未登入');
   }
   const data = await r.json().catch(() => ({}));
+  if (r.status === 429) {
+    throw new Error(formatRateLimitMessage(data));
+  }
   if (!r.ok) throw new Error(data.error || `${r.status} ${r.statusText}`);
   return data;
 }
 
 /* ---------- init ---------- */
+
+function isoDay(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function primeDefaultDateRange() {
+  const today = new Date();
+  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const from = new Date(to);
+  from.setDate(from.getDate() - 90);
+  const fromIso = isoDay(from);
+  const toIso = isoDay(to);
+  els.fDateFrom.value = fromIso;
+  els.fDateTo.value = toIso;
+  state.filters.dateFrom = fromIso;
+  state.filters.dateTo = toIso;
+}
 
 async function init() {
   try {
@@ -121,6 +161,7 @@ async function init() {
     state.tenants = me.tenants;
     state.activeTenantId = me.activeTenantId;
 
+    primeDefaultDateRange();
     renderTenants();
     bindEvents();
     applyAndRender();
@@ -164,7 +205,7 @@ function bindEvents() {
     state.items = [];
     state.loaded = false;
     state.page = 1;
-    refreshVouchers();
+    refreshVouchers({ force: true });
   });
 
   els.logoutBtn.addEventListener('click', async () => {
@@ -176,7 +217,7 @@ function bindEvents() {
     window.location.href = '/login.html';
   });
 
-  els.refreshBtn.addEventListener('click', () => refreshVouchers());
+  els.refreshBtn.addEventListener('click', () => refreshVouchers({ force: true }));
 
   els.searchBtn.addEventListener('click', () => {
     state.page = 1;
@@ -289,16 +330,21 @@ function buildQueryString() {
   return s ? '?' + s : '';
 }
 
-async function refreshVouchers() {
+async function refreshVouchers(opts) {
+  const force = !!(opts && opts.force);
   els.refreshBtn.disabled = true;
   els.searchBtn.disabled = true;
-  els.refreshStatus.textContent = '讀取中…';
+  els.refreshStatus.textContent = state.loaded && !force
+    ? '讀取中…'
+    : '首次同步 Xero 90 天資料中…（首次可能需 30–60 秒）';
   try {
-    const data = await api('/api/vouchers' + buildQueryString());
+    const qs = buildQueryString();
+    const url = '/api/vouchers' + qs + (force ? (qs ? '&force=1' : '?force=1') : '');
+    const data = await api(url);
     state.items = data.items || [];
     state.loaded = true;
     state.dirty = false;
-    state.refreshedAt = new Date(data.refreshedAt);
+    state.refreshedAt = new Date(data.refreshedAt || data.preloadedAt || Date.now());
     state.appliedRange = {
       from: data.appliedDateFrom || '',
       to: data.appliedDateTo || '',
@@ -309,9 +355,10 @@ async function refreshVouchers() {
       els.appliedRange.textContent = `共 ${state.items.length} 張`;
     }
     applyAndRender();
-    els.refreshStatus.textContent = `最後更新：${state.refreshedAt.toLocaleTimeString(
-      'zh-Hant'
-    )}`;
+    els.refreshStatus.textContent = `最後同步：${state.refreshedAt.toLocaleTimeString('zh-Hant')}`;
+    if (data.stale && window.notify) {
+      window.notify.warn('僅顯示近 90 天資料；如需更早日期請按【重新整理】並拉大範圍');
+    }
   } catch (err) {
     els.refreshStatus.textContent = '讀取失敗';
     if (window.notify) window.notify.error('讀取失敗：' + err.message);
