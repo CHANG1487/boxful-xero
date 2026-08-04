@@ -144,6 +144,14 @@ html, body {
   color: var(--fg-muted);
 }
 
+/* 日期輸入需要較寬的空間才不會把 YYYY/MM/DD 壓成看不完整 */
+.filter-cell-date { grid-column: span 2; }
+.filter-cell-date .range input[type="date"] { min-width: 128px; }
+
+@media (max-width: 900px) {
+  .filter-cell-date { grid-column: span 1; }
+}
+
 .filter-cell-actions {
   flex-direction: row;
   align-items: flex-end;

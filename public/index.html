@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Xero 憑證列印平台</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 </head>
 <body>
   <div class="sticky-stack">
@@ -23,6 +25,7 @@
       <div class="toolbar-left">
         <button id="refresh-btn" class="btn btn-primary">重新整理</button>
         <span id="refresh-status" class="muted small"></span>
+        <span id="applied-range" class="muted small"></span>
       </div>
       <div class="toolbar-right">
         <span id="selection-count" class="muted">已選取 0 張</span>
@@ -39,7 +42,7 @@
           <option value="MJ">MJ</option>
         </select>
       </div>
-      <div class="filter-cell filter-cell-range">
+      <div class="filter-cell filter-cell-range filter-cell-date">
         <label>日期</label>
         <div class="range">
           <input type="date" id="f-date-from" />
@@ -148,6 +151,7 @@
     </section>
   </main>
 
+  <script src="/js/notify.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

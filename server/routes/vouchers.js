@@ -26,36 +26,134 @@ function normalizeDate(iso) {
   return isNaN(d) ? '' : d.toISOString().slice(0, 10);
 }
 
+function isValidIsoDate(s) {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function toXeroDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `DateTime(${y},${m},${d})`;
+}
+
+function defaultDateRange() {
+  const now = new Date();
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const from = new Date(to);
+  from.setDate(from.getDate() - 60);
+  const iso = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+  return { from: iso(from), to: iso(to) };
+}
+
+async function fetchAllInvoices(client, tenantId, where, statuses) {
+  const all = [];
+  const pageSize = 1000; // 配合 summaryOnly=true
+  const MAX_PAGES = 100;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const resp = await client.accountingApi.getInvoices(
+      tenantId,
+      undefined,
+      where,
+      'Date DESC',
+      undefined,
+      undefined,
+      undefined,
+      statuses,
+      page,
+      false,
+      false,
+      undefined,
+      true,
+      pageSize
+    );
+    const items = (resp.body && resp.body.invoices) || [];
+    all.push(...items);
+    if (items.length < pageSize) return all;
+  }
+  console.warn(
+    `fetchAllInvoices reached MAX_PAGES for tenant ${tenantId}; results may be truncated`
+  );
+  return all;
+}
+
+async function fetchAllManualJournals(client, tenantId, where) {
+  const all = [];
+  const pageSize = 100; // Xero MJ 上限
+  const MAX_PAGES = 100;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const resp = await client.accountingApi.getManualJournals(
+      tenantId,
+      undefined,
+      where,
+      'Date DESC',
+      page,
+      pageSize
+    );
+    const items = (resp.body && resp.body.manualJournals || []);
+    all.push(...items);
+    if (items.length < pageSize) return all;
+  }
+  console.warn(
+    `fetchAllManualJournals reached MAX_PAGES for tenant ${tenantId}; results may be truncated`
+  );
+  return all;
+}
+
 router.get('/vouchers', requireAuth, async (req, res, next) => {
   try {
     const client = await clientFromSession(req.session);
     const tenantId = req.session.activeTenantId;
 
-    const [billsResp, mjResp] = await Promise.all([
-      client.accountingApi.getInvoices(
-        tenantId,
-        undefined,
-        'Type=="ACCPAY"',
-        'Date DESC',
-        undefined,
-        undefined,
-        undefined,
-        ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'],
-        undefined,
-        false,
-        false,
-        undefined,
-        true
-      ),
-      client.accountingApi.getManualJournals(
-        tenantId,
-        undefined,
-        undefined,
-        'Date DESC'
-      ),
-    ]);
+    const q = req.query || {};
+    const type = String(q.type || '').toUpperCase();
+    const number = String(q.number || '').trim();
+    const contact = String(q.contact || '').trim();
+    const narration = String(q.narration || '').trim();
+    const status = String(q.status || '').trim().toUpperCase();
+    const amountMin =
+      q.amountMin !== undefined && q.amountMin !== ''
+        ? Number(q.amountMin)
+        : null;
+    const amountMax =
+      q.amountMax !== undefined && q.amountMax !== ''
+        ? Number(q.amountMax)
+        : null;
 
-    const bills = (billsResp.body.invoices || []).map((inv) => ({
+    const defaults = defaultDateRange();
+    const dateFrom = isValidIsoDate(q.dateFrom) ? q.dateFrom : defaults.from;
+    const dateTo = isValidIsoDate(q.dateTo) ? q.dateTo : defaults.to;
+
+    const dateClause = `Date>=${toXeroDate(dateFrom)} && Date<=${toXeroDate(
+      dateTo
+    )}`;
+
+    const billsWhere = `Type=="ACCPAY" && ${dateClause}`;
+    const billsStatuses =
+      status && ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'].includes(status)
+        ? [status]
+        : ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
+
+    let mjWhere = dateClause;
+    if (status && ['DRAFT', 'POSTED'].includes(status)) {
+      mjWhere += ` && Status=="${status}"`;
+    }
+
+    const tasks = [];
+    if (type !== 'MJ') {
+      tasks.push(fetchAllInvoices(client, tenantId, billsWhere, billsStatuses));
+    } else {
+      tasks.push(Promise.resolve([]));
+    }
+    if (type !== 'BILL') {
+      tasks.push(fetchAllManualJournals(client, tenantId, mjWhere));
+    } else {
+      tasks.push(Promise.resolve([]));
+    }
+    const [rawInvoices, rawMjs] = await Promise.all(tasks);
+
+    const bills = rawInvoices.map((inv) => ({
       type: 'BILL',
       id: inv.invoiceID,
       number: inv.invoiceNumber || '',
@@ -68,7 +166,7 @@ router.get('/vouchers', requireAuth, async (req, res, next) => {
       currency: inv.currencyCode || '',
     }));
 
-    const mjs = (mjResp.body.manualJournals || []).map((mj) => ({
+    const mjs = rawMjs.map((mj) => ({
       type: 'MJ',
       id: mj.manualJournalID,
       number: mj.manualJournalID
@@ -86,13 +184,35 @@ router.get('/vouchers', requireAuth, async (req, res, next) => {
       currency: '',
     }));
 
-    const merged = [...bills, ...mjs].sort((a, b) =>
+    const contains = (s, needle) =>
+      !needle ||
+      String(s || '')
+        .toLowerCase()
+        .includes(needle.toLowerCase());
+
+    const filtered = [...bills, ...mjs].filter((v) => {
+      if (
+        number &&
+        !contains(v.number, number) &&
+        !contains(v.reference, number)
+      )
+        return false;
+      if (contact && !contains(v.contact, contact)) return false;
+      if (narration && !contains(v.reference, narration)) return false;
+      if (amountMin != null && Number(v.total || 0) < amountMin) return false;
+      if (amountMax != null && Number(v.total || 0) > amountMax) return false;
+      return true;
+    });
+
+    const merged = filtered.sort((a, b) =>
       a.date < b.date ? 1 : a.date > b.date ? -1 : 0
     );
 
     res.json({
       tenantId,
       items: merged,
+      appliedDateFrom: dateFrom,
+      appliedDateTo: dateTo,
       refreshedAt: new Date().toISOString(),
     });
   } catch (err) {

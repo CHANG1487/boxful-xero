@@ -187,20 +187,26 @@ async function build() {
     els.sheets.innerHTML =
       '<p style="padding:40px;text-align:center;color:#666">沒有指定要列印的憑證。</p>';
     els.printBtn.disabled = true;
+    if (window.notify) window.notify.warn('沒有指定要列印的憑證。');
     return;
   }
   els.status.textContent = '讀取中…';
   const detailBlocks = [];
+  const failed = [];
   for (const it of items) {
     try {
       const detail = await fetchDetail(it);
       if (it.type === 'BILL') detailBlocks.push(renderBill(detail.data, detail.accounts));
       else if (it.type === 'MJ') detailBlocks.push(renderMJ(detail.data, detail.accounts));
     } catch (err) {
+      failed.push(`${it.type}:${it.id}（${err.message}）`);
       detailBlocks.push(
         `<div class="voucher"><p style="color:#dc2626">讀取 ${escapeHtml(it.type)}:${escapeHtml(it.id)} 失敗：${escapeHtml(err.message)}</p></div>`
       );
     }
+  }
+  if (failed.length && window.notify) {
+    window.notify.error('部分憑證讀取失敗：\n' + failed.join('\n'));
   }
 
   const sheets = [];

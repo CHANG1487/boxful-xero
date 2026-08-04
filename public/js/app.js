@@ -8,6 +8,8 @@ const state = {
   selected: new Set(),
   refreshedAt: null,
   loaded: false,
+  dirty: false,
+  appliedRange: { from: '', to: '' },
   filters: {
     type: '',
     dateFrom: '',
@@ -28,6 +30,7 @@ const els = {
   logoutBtn: document.getElementById('logout-btn'),
   refreshBtn: document.getElementById('refresh-btn'),
   refreshStatus: document.getElementById('refresh-status'),
+  appliedRange: document.getElementById('applied-range'),
   selectionCount: document.getElementById('selection-count'),
   previewBtn: document.getElementById('preview-btn'),
   tbody: document.getElementById('voucher-tbody'),
@@ -77,6 +80,14 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 async function api(path, opts) {
   const r = await fetch(path, Object.assign({ credentials: 'same-origin' }, opts || {}));
   if (r.status === 401) {
@@ -106,6 +117,7 @@ async function init() {
     applyAndRender();
   } catch (err) {
     console.error(err);
+    if (window.notify) window.notify.error('初始化失敗：' + err.message);
   }
 }
 
@@ -120,24 +132,43 @@ function renderTenants() {
   }
 }
 
+const notifyDirtyToast = debounce(() => {
+  if (window.notify) window.notify.toast('條件已變更，按【查詢】重新載入', 'info');
+}, 500);
+
+function markDirty() {
+  state.dirty = true;
+  els.refreshStatus.textContent = '條件已變更，按【查詢】重新載入';
+  notifyDirtyToast();
+}
+
 function bindEvents() {
   els.tenantSelect.addEventListener('change', async () => {
     const tenantId = els.tenantSelect.value;
-    await api('/api/tenants/switch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantId }),
-    });
+    try {
+      await api('/api/tenants/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId }),
+      });
+    } catch (err) {
+      if (window.notify) window.notify.error('切換公司失敗：' + err.message);
+      return;
+    }
     state.activeTenantId = tenantId;
     state.selected.clear();
     state.items = [];
     state.loaded = false;
     state.page = 1;
-    applyAndRender();
+    refreshVouchers();
   });
 
   els.logoutBtn.addEventListener('click', async () => {
-    await api('/auth/logout', { method: 'POST' });
+    try {
+      await api('/auth/logout', { method: 'POST' });
+    } catch (_) {
+      /* ignore */
+    }
     window.location.href = '/login.html';
   });
 
@@ -168,12 +199,11 @@ function bindEvents() {
     updateSelectionUI();
   });
 
-  // filter events
+  // filter events：只更新 state，不即時過濾——要按【查詢】才會重打後端
   const bindFilter = (el, key, transform) => {
     const handler = () => {
       state.filters[key] = transform ? transform(el.value) : el.value;
-      state.page = 1;
-      applyAndRender();
+      if (state.loaded) markDirty();
     };
     el.addEventListener('input', handler);
     el.addEventListener('change', handler);
@@ -199,7 +229,7 @@ function bindEvents() {
       els.fNarration, els.fAmountMin, els.fAmountMax, els.fStatus,
     ]) el.value = '';
     state.page = 1;
-    applyAndRender();
+    refreshVouchers();
   });
 
   els.pageSize.addEventListener('change', () => {
@@ -215,7 +245,7 @@ function bindEvents() {
     }
   });
   els.pageNext.addEventListener('click', () => {
-    const total = getFilteredItems().length;
+    const total = state.items.length;
     const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.page < totalPages) {
       state.page++;
@@ -226,63 +256,76 @@ function bindEvents() {
 
 /* ---------- data pipeline ---------- */
 
+function buildQueryString() {
+  const qs = new URLSearchParams();
+  const f = state.filters;
+  const set = (k, v) => {
+    if (v == null) return;
+    const s = String(v).trim();
+    if (s === '') return;
+    qs.set(k, s);
+  };
+  set('type', f.type);
+  set('dateFrom', f.dateFrom);
+  set('dateTo', f.dateTo);
+  set('number', f.number);
+  set('contact', f.contact);
+  set('narration', f.narration);
+  set('amountMin', f.amountMin);
+  set('amountMax', f.amountMax);
+  set('status', f.status);
+  const s = qs.toString();
+  return s ? '?' + s : '';
+}
+
 async function refreshVouchers() {
   els.refreshBtn.disabled = true;
   els.searchBtn.disabled = true;
   els.refreshStatus.textContent = '讀取中…';
   try {
-    const data = await api('/api/vouchers');
-    state.items = data.items;
+    const data = await api('/api/vouchers' + buildQueryString());
+    state.items = data.items || [];
     state.loaded = true;
+    state.dirty = false;
     state.refreshedAt = new Date(data.refreshedAt);
+    state.appliedRange = {
+      from: data.appliedDateFrom || '',
+      to: data.appliedDateTo || '',
+    };
     state.selected = new Set(
       Array.from(state.selected).filter((k) =>
         state.items.some((v) => `${v.type}:${v.id}` === k)
       )
     );
+    if (state.appliedRange.from && state.appliedRange.to) {
+      els.appliedRange.textContent = `已套用 ${state.appliedRange.from} ~ ${state.appliedRange.to}（共 ${state.items.length} 張）`;
+    } else {
+      els.appliedRange.textContent = `共 ${state.items.length} 張`;
+    }
     applyAndRender();
     els.refreshStatus.textContent = `最後更新：${state.refreshedAt.toLocaleTimeString(
       'zh-Hant'
     )}`;
   } catch (err) {
-    els.refreshStatus.textContent = '讀取失敗：' + err.message;
+    els.refreshStatus.textContent = '讀取失敗';
+    if (window.notify) window.notify.error('讀取失敗：' + err.message);
   } finally {
     els.refreshBtn.disabled = false;
     els.searchBtn.disabled = false;
   }
 }
 
-function getFilteredItems() {
-  const f = state.filters;
-  const contains = (s, needle) =>
-    !needle || String(s || '').toLowerCase().includes(needle.toLowerCase());
-
-  return state.items.filter((v) => {
-    if (f.type && v.type !== f.type) return false;
-    if (f.dateFrom && v.date && v.date < f.dateFrom) return false;
-    if (f.dateTo && v.date && v.date > f.dateTo) return false;
-    if (f.number && !contains(v.number, f.number) && !contains(v.reference, f.number)) return false;
-    if (f.contact && !contains(v.contact, f.contact)) return false;
-    if (f.narration && !contains(v.reference, f.narration)) return false;
-    if (f.amountMin != null && Number(v.total || 0) < f.amountMin) return false;
-    if (f.amountMax != null && Number(v.total || 0) > f.amountMax) return false;
-    if (f.status && v.status !== f.status) return false;
-    return true;
-  });
-}
-
 function getPageItems() {
-  const filtered = getFilteredItems();
   const start = (state.page - 1) * state.pageSize;
-  return filtered.slice(start, start + state.pageSize);
+  return state.items.slice(start, start + state.pageSize);
 }
 
 function applyAndRender() {
-  const filtered = getFilteredItems();
-  const totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+  const total = state.items.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
   if (state.page > totalPages) state.page = totalPages;
   renderRows();
-  renderPagination(filtered.length, totalPages);
+  renderPagination(total, totalPages);
   updateSelectionUI();
 }
 
@@ -290,10 +333,10 @@ function applyAndRender() {
 
 function renderRows() {
   const pageItems = getPageItems();
-  const filteredCount = getFilteredItems().length;
+  const totalCount = state.items.length;
 
   if (!pageItems.length) {
-    const msg = filteredCount === 0
+    const msg = totalCount === 0
       ? (state.loaded
         ? '沒有符合條件的憑證。'
         : '請於上方輸入條件後按【查詢】載入憑證。')
