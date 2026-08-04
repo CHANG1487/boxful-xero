@@ -89,6 +89,14 @@ function debounce(fn, delay) {
   };
 }
 
+const TYPE_BADGE = {
+  BILL: { cls: 'bill', label: 'BILL' },
+  MJ:   { cls: 'mj',   label: 'MJ' },
+  RECV: { cls: 'recv', label: '收款' },
+  SPND: { cls: 'spnd', label: '付款' },
+  CN:   { cls: 'cn',   label: '貸項' },
+};
+
 async function api(path, opts) {
   const r = await fetch(path, Object.assign({ credentials: 'same-origin' }, opts || {}));
   if (r.status === 401) {
@@ -347,10 +355,8 @@ function renderRows() {
     const key = `${v.type}:${v.id}`;
     const checked = state.selected.has(key) ? 'checked' : '';
     const rowCls = state.selected.has(key) ? 'selected' : '';
-    const typeBadge =
-      v.type === 'BILL'
-        ? '<span class="type-badge bill">BILL</span>'
-        : '<span class="type-badge mj">MJ</span>';
+    const b = TYPE_BADGE[v.type] || { cls: 'mj', label: v.type || '' };
+    const typeBadge = `<span class="type-badge ${b.cls}">${escapeHtml(b.label)}</span>`;
     return `
       <tr class="${rowCls}" data-key="${key}">
         <td class="col-check"><input type="checkbox" ${checked} /></td>

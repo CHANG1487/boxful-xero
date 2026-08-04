@@ -182,6 +182,153 @@ function renderMJ(mj, accounts) {
   `;
 }
 
+function renderBankTx(bt, accounts, direction) {
+  const lines = bt.lineItems || [];
+  const total = bt.total != null ? bt.total : 0;
+  const tax = bt.totalTax != null ? bt.totalTax : 0;
+  const sub = bt.subTotal != null ? bt.subTotal : total - tax;
+
+  const title =
+    direction === 'RECV'
+      ? '收款單（Received Money）'
+      : '付款單（Spend Money）';
+  const counterLabel = direction === 'RECV' ? '付款方' : '受款方';
+  const idShort = bt.bankTransactionID
+    ? bt.bankTransactionID.slice(0, 8).toUpperCase()
+    : '';
+  const bankAcct = bt.bankAccount
+    ? fmtAccount(bt.bankAccount.code, accounts) || (bt.bankAccount.name || '')
+    : '';
+
+  const rows = lines
+    .map(
+      (l) => `
+      <tr>
+        <td>${escapeHtml(l.description || '')}</td>
+        <td>${escapeHtml(fmtAccount(l.accountCode, accounts))}</td>
+        <td class="num">${l.quantity != null ? l.quantity : ''}</td>
+        <td class="num">${l.unitAmount != null ? fmtMoney(l.unitAmount) : ''}</td>
+        <td class="num">${l.taxAmount != null ? fmtMoney(l.taxAmount) : ''}</td>
+        <td class="num">${l.lineAmount != null ? fmtMoney(l.lineAmount) : ''}</td>
+      </tr>
+    `
+    )
+    .join('');
+
+  return `
+    <div class="voucher" data-type="${direction}" data-id="${escapeHtml(bt.bankTransactionID || '')}">
+      <h2 class="voucher-title">${title}</h2>
+      <div class="voucher-meta">
+        <div class="field"><span class="label">${counterLabel}</span><span class="value">${escapeHtml(bt.contact ? bt.contact.name : '')}</span></div>
+        <div class="field"><span class="label">日期</span><span class="value">${fmtDate(bt.date)}</span></div>
+        <div class="field"><span class="label">交易編號</span><span class="value">${escapeHtml(idShort)}</span></div>
+        <div class="field"><span class="label">銀行帳戶</span><span class="value">${escapeHtml(bankAcct)}</span></div>
+        <div class="field"><span class="label">參考</span><span class="value">${escapeHtml(bt.reference || '')}</span></div>
+        <div class="field"><span class="label">狀態</span><span class="value">${escapeHtml(bt.status || '')}</span></div>
+      </div>
+      <table class="voucher-lines">
+        <thead>
+          <tr>
+            <th style="width:22%">摘要</th>
+            <th style="width:22%">科目</th>
+            <th style="width:10%">數量</th>
+            <th style="width:15%">單價</th>
+            <th style="width:14%">稅額</th>
+            <th style="width:17%">小計</th>
+          </tr>
+        </thead>
+        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#999">—</td></tr>`}</tbody>
+        <tfoot>
+          <tr><td colspan="5" class="num">未稅金額</td><td class="num">${fmtMoney(sub)}</td></tr>
+          <tr><td colspan="5" class="num">稅額</td><td class="num">${fmtMoney(tax)}</td></tr>
+          <tr><td colspan="5" class="num">總計 (${escapeHtml(bt.currencyCode || '')})</td><td class="num">${fmtMoney(total)}</td></tr>
+        </tfoot>
+      </table>
+      <div class="voucher-footer">
+        <div class="notes">${bt.reference ? '備註：' + escapeHtml(bt.reference) : ''}</div>
+        <div class="signatures">
+          <div class="sig-cell"><span class="label">製表</span></div>
+          <div class="sig-cell"><span class="label">會計</span></div>
+          <div class="sig-cell"><span class="label">核准</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCreditNote(cn, accounts) {
+  const lines = cn.lineItems || [];
+  const total = cn.total != null ? cn.total : 0;
+  const tax = cn.totalTax != null ? cn.totalTax : 0;
+  const sub = cn.subTotal != null ? cn.subTotal : total - tax;
+
+  const isPay = cn.type === 'ACCPAYCREDIT';
+  const title = isPay
+    ? '應付貸項通知單（Credit Note）'
+    : '應收貸項通知單（Credit Note）';
+  const counterLabel = isPay ? '廠商' : '客戶';
+  const numShort = cn.creditNoteNumber
+    ? cn.creditNoteNumber
+    : cn.creditNoteID
+    ? cn.creditNoteID.slice(0, 8).toUpperCase()
+    : '';
+
+  const rows = lines
+    .map(
+      (l) => `
+      <tr>
+        <td>${escapeHtml(l.description || '')}</td>
+        <td>${escapeHtml(fmtAccount(l.accountCode, accounts))}</td>
+        <td class="num">${l.quantity != null ? l.quantity : ''}</td>
+        <td class="num">${l.unitAmount != null ? fmtMoney(l.unitAmount) : ''}</td>
+        <td class="num">${l.taxAmount != null ? fmtMoney(l.taxAmount) : ''}</td>
+        <td class="num">${l.lineAmount != null ? fmtMoney(l.lineAmount) : ''}</td>
+      </tr>
+    `
+    )
+    .join('');
+
+  return `
+    <div class="voucher" data-type="CN" data-id="${escapeHtml(cn.creditNoteID || '')}">
+      <h2 class="voucher-title">${title}</h2>
+      <div class="voucher-meta">
+        <div class="field"><span class="label">${counterLabel}</span><span class="value">${escapeHtml(cn.contact ? cn.contact.name : '')}</span></div>
+        <div class="field"><span class="label">日期</span><span class="value">${fmtDate(cn.date)}</span></div>
+        <div class="field"><span class="label">貸項單號</span><span class="value">${escapeHtml(numShort)}</span></div>
+        <div class="field"><span class="label">到期日</span><span class="value">${fmtDate(cn.dueDate)}</span></div>
+        <div class="field"><span class="label">參考</span><span class="value">${escapeHtml(cn.reference || '')}</span></div>
+        <div class="field"><span class="label">狀態</span><span class="value">${escapeHtml(cn.status || '')}</span></div>
+      </div>
+      <table class="voucher-lines">
+        <thead>
+          <tr>
+            <th style="width:22%">摘要</th>
+            <th style="width:22%">科目</th>
+            <th style="width:10%">數量</th>
+            <th style="width:15%">單價</th>
+            <th style="width:14%">稅額</th>
+            <th style="width:17%">小計</th>
+          </tr>
+        </thead>
+        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:#999">—</td></tr>`}</tbody>
+        <tfoot>
+          <tr><td colspan="5" class="num">未稅金額</td><td class="num">${fmtMoney(sub)}</td></tr>
+          <tr><td colspan="5" class="num">稅額</td><td class="num">${fmtMoney(tax)}</td></tr>
+          <tr><td colspan="5" class="num">總計 (${escapeHtml(cn.currencyCode || '')})</td><td class="num">${fmtMoney(total)}</td></tr>
+        </tfoot>
+      </table>
+      <div class="voucher-footer">
+        <div class="notes">${cn.reference ? '備註：' + escapeHtml(cn.reference) : ''}</div>
+        <div class="signatures">
+          <div class="sig-cell"><span class="label">製表</span></div>
+          <div class="sig-cell"><span class="label">會計</span></div>
+          <div class="sig-cell"><span class="label">核准</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function build() {
   if (!items.length) {
     els.sheets.innerHTML =
@@ -198,6 +345,9 @@ async function build() {
       const detail = await fetchDetail(it);
       if (it.type === 'BILL') detailBlocks.push(renderBill(detail.data, detail.accounts));
       else if (it.type === 'MJ') detailBlocks.push(renderMJ(detail.data, detail.accounts));
+      else if (it.type === 'RECV') detailBlocks.push(renderBankTx(detail.data, detail.accounts, 'RECV'));
+      else if (it.type === 'SPND') detailBlocks.push(renderBankTx(detail.data, detail.accounts, 'SPND'));
+      else if (it.type === 'CN') detailBlocks.push(renderCreditNote(detail.data, detail.accounts));
     } catch (err) {
       failed.push(`${it.type}:${it.id}（${err.message}）`);
       detailBlocks.push(

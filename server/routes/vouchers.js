@@ -101,6 +101,54 @@ async function fetchAllManualJournals(client, tenantId, where) {
   return all;
 }
 
+async function fetchAllBankTransactions(client, tenantId, where) {
+  const all = [];
+  const pageSize = 100;
+  const MAX_PAGES = 100;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const resp = await client.accountingApi.getBankTransactions(
+      tenantId,
+      undefined,
+      where,
+      'Date DESC',
+      page,
+      undefined,
+      pageSize
+    );
+    const items = (resp.body && resp.body.bankTransactions) || [];
+    all.push(...items);
+    if (items.length < pageSize) return all;
+  }
+  console.warn(
+    `fetchAllBankTransactions reached MAX_PAGES for tenant ${tenantId}; results may be truncated`
+  );
+  return all;
+}
+
+async function fetchAllCreditNotes(client, tenantId, where) {
+  const all = [];
+  const pageSize = 100;
+  const MAX_PAGES = 100;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const resp = await client.accountingApi.getCreditNotes(
+      tenantId,
+      undefined,
+      where,
+      'Date DESC',
+      page,
+      undefined,
+      pageSize
+    );
+    const items = (resp.body && resp.body.creditNotes) || [];
+    all.push(...items);
+    if (items.length < pageSize) return all;
+  }
+  console.warn(
+    `fetchAllCreditNotes reached MAX_PAGES for tenant ${tenantId}; results may be truncated`
+  );
+  return all;
+}
+
 router.get('/vouchers', requireAuth, async (req, res, next) => {
   try {
     const client = await clientFromSession(req.session);
@@ -129,29 +177,58 @@ router.get('/vouchers', requireAuth, async (req, res, next) => {
       dateTo
     )}`;
 
+    const billStatusWhitelist = ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
+    const mjStatusWhitelist = ['DRAFT', 'POSTED'];
+
     const billsWhere = `Type=="ACCPAY" && ${dateClause}`;
     const billsStatuses =
-      status && ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'].includes(status)
+      status && billStatusWhitelist.includes(status)
         ? [status]
-        : ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
+        : billStatusWhitelist;
 
     let mjWhere = dateClause;
-    if (status && ['DRAFT', 'POSTED'].includes(status)) {
+    if (status && mjStatusWhitelist.includes(status)) {
       mjWhere += ` && Status=="${status}"`;
     }
 
-    const tasks = [];
-    if (type !== 'MJ') {
-      tasks.push(fetchAllInvoices(client, tenantId, billsWhere, billsStatuses));
+    const recvWhere = `(Type=="RECEIVE" || Type=="RECEIVE-OVERPAYMENT" || Type=="RECEIVE-PREPAYMENT") && Status=="AUTHORISED" && ${dateClause}`;
+    const spndWhere = `(Type=="SPEND" || Type=="SPEND-OVERPAYMENT" || Type=="SPEND-PREPAYMENT") && Status=="AUTHORISED" && ${dateClause}`;
+
+    let cnWhere = dateClause;
+    if (status && billStatusWhitelist.includes(status)) {
+      cnWhere += ` && Status=="${status}"`;
     } else {
-      tasks.push(Promise.resolve([]));
+      cnWhere += ` && (Status=="DRAFT" || Status=="SUBMITTED" || Status=="AUTHORISED" || Status=="PAID")`;
     }
-    if (type !== 'BILL') {
-      tasks.push(fetchAllManualJournals(client, tenantId, mjWhere));
-    } else {
-      tasks.push(Promise.resolve([]));
-    }
-    const [rawInvoices, rawMjs] = await Promise.all(tasks);
+
+    const wantsBill = !type || type === 'BILL';
+    const wantsMJ = !type || type === 'MJ';
+    const wantsRecv = !type || type === 'RECV';
+    const wantsSpnd = !type || type === 'SPND';
+    const wantsCn = !type || type === 'CN';
+
+    const billApplies = !status || billStatusWhitelist.includes(status);
+    const mjApplies = !status || mjStatusWhitelist.includes(status);
+    const btApplies = !status || status === 'AUTHORISED';
+    const cnApplies = billApplies;
+
+    const [rawInvoices, rawMjs, rawRecvs, rawSpnds, rawCns] = await Promise.all([
+      wantsBill && billApplies
+        ? fetchAllInvoices(client, tenantId, billsWhere, billsStatuses)
+        : Promise.resolve([]),
+      wantsMJ && mjApplies
+        ? fetchAllManualJournals(client, tenantId, mjWhere)
+        : Promise.resolve([]),
+      wantsRecv && btApplies
+        ? fetchAllBankTransactions(client, tenantId, recvWhere)
+        : Promise.resolve([]),
+      wantsSpnd && btApplies
+        ? fetchAllBankTransactions(client, tenantId, spndWhere)
+        : Promise.resolve([]),
+      wantsCn && cnApplies
+        ? fetchAllCreditNotes(client, tenantId, cnWhere)
+        : Promise.resolve([]),
+    ]);
 
     const bills = rawInvoices.map((inv) => ({
       type: 'BILL',
@@ -184,13 +261,48 @@ router.get('/vouchers', requireAuth, async (req, res, next) => {
       currency: '',
     }));
 
+    const bankTxToRow = (typeCode) => (bt) => ({
+      type: typeCode,
+      id: bt.bankTransactionID,
+      number: bt.bankTransactionID
+        ? bt.bankTransactionID.slice(0, 8).toUpperCase()
+        : '',
+      reference: bt.reference || '',
+      date: normalizeDate(bt.date || ''),
+      dueDate: '',
+      status: bt.status || '',
+      contact: bt.contact
+        ? bt.contact.name
+        : (bt.bankAccount ? bt.bankAccount.name : ''),
+      total: bt.total != null ? bt.total : 0,
+      currency: bt.currencyCode || '',
+    });
+
+    const recvs = rawRecvs.map(bankTxToRow('RECV'));
+    const spnds = rawSpnds.map(bankTxToRow('SPND'));
+
+    const cns = rawCns.map((cn) => ({
+      type: 'CN',
+      id: cn.creditNoteID,
+      number:
+        cn.creditNoteNumber ||
+        (cn.creditNoteID ? cn.creditNoteID.slice(0, 8).toUpperCase() : ''),
+      reference: cn.reference || '',
+      date: normalizeDate(cn.date || ''),
+      dueDate: normalizeDate(cn.dueDate || ''),
+      status: cn.status || '',
+      contact: cn.contact ? cn.contact.name : '',
+      total: cn.total != null ? cn.total : 0,
+      currency: cn.currencyCode || '',
+    }));
+
     const contains = (s, needle) =>
       !needle ||
       String(s || '')
         .toLowerCase()
         .includes(needle.toLowerCase());
 
-    const filtered = [...bills, ...mjs].filter((v) => {
+    const filtered = [...bills, ...mjs, ...recvs, ...spnds, ...cns].filter((v) => {
       if (
         number &&
         !contains(v.number, number) &&
@@ -259,6 +371,26 @@ router.get('/vouchers/:type/:id', requireAuth, async (req, res, next) => {
       const mj = (resp.body.manualJournals || [])[0];
       if (!mj) return res.status(404).json({ error: '找不到 Manual Journal' });
       res.json({ type: 'MJ', data: mj, accounts });
+    } else if (type === 'RECV' || type === 'SPND') {
+      const [resp, accounts] = await Promise.all([
+        client.accountingApi.getBankTransaction(tenantId, id),
+        accountsPromise,
+      ]);
+      const bt = (resp.body.bankTransactions || [])[0];
+      if (!bt) {
+        return res
+          .status(404)
+          .json({ error: type === 'RECV' ? '找不到收款單' : '找不到付款單' });
+      }
+      res.json({ type, data: bt, accounts });
+    } else if (type === 'CN') {
+      const [resp, accounts] = await Promise.all([
+        client.accountingApi.getCreditNote(tenantId, id),
+        accountsPromise,
+      ]);
+      const cn = (resp.body.creditNotes || [])[0];
+      if (!cn) return res.status(404).json({ error: '找不到貸項通知單' });
+      res.json({ type: 'CN', data: cn, accounts });
     } else {
       res.status(400).json({ error: '未知的憑證類型' });
     }
