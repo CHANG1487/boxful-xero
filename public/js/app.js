@@ -32,6 +32,7 @@ const els = {
   refreshStatus: document.getElementById('refresh-status'),
   appliedRange: document.getElementById('applied-range'),
   selectionCount: document.getElementById('selection-count'),
+  clearSelectionBtn: document.getElementById('clear-selection'),
   previewBtn: document.getElementById('preview-btn'),
   tbody: document.getElementById('voucher-tbody'),
   selectAll: document.getElementById('select-all'),
@@ -132,14 +133,9 @@ function renderTenants() {
   }
 }
 
-const notifyDirtyToast = debounce(() => {
-  if (window.notify) window.notify.toast('條件已變更，按【查詢】重新載入', 'info');
-}, 500);
-
 function markDirty() {
   state.dirty = true;
   els.refreshStatus.textContent = '條件已變更，按【查詢】重新載入';
-  notifyDirtyToast();
 }
 
 function bindEvents() {
@@ -186,6 +182,13 @@ function bindEvents() {
       `/voucher-print.html?ids=${encodeURIComponent(ids)}`,
       '_blank'
     );
+  });
+
+  els.clearSelectionBtn.addEventListener('click', () => {
+    if (!state.selected.size) return;
+    state.selected.clear();
+    renderRows();
+    updateSelectionUI();
   });
 
   els.selectAll.addEventListener('change', () => {
@@ -292,11 +295,6 @@ async function refreshVouchers() {
       from: data.appliedDateFrom || '',
       to: data.appliedDateTo || '',
     };
-    state.selected = new Set(
-      Array.from(state.selected).filter((k) =>
-        state.items.some((v) => `${v.type}:${v.id}` === k)
-      )
-    );
     if (state.appliedRange.from && state.appliedRange.to) {
       els.appliedRange.textContent = `已套用 ${state.appliedRange.from} ~ ${state.appliedRange.to}（共 ${state.items.length} 張）`;
     } else {
@@ -440,6 +438,7 @@ function updateSelectionUI() {
   const n = state.selected.size;
   els.selectionCount.textContent = `已選取 ${n} 張`;
   els.previewBtn.disabled = n === 0;
+  els.clearSelectionBtn.disabled = n === 0;
   const pageItems = getPageItems();
   const pageAllSelected =
     pageItems.length > 0 &&
