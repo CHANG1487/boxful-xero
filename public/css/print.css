@@ -1,9 +1,15 @@
 /* A4 直向、上下切一刀（每張 A5 直式）
    A4 = 210mm x 297mm，中一刀後每張憑證 = 210mm x 148.5mm */
 
+:root {
+  --sheet-w: 210mm;
+  --sheet-h: 297mm;
+  --voucher-h: 148.5mm;
+}
+
 .voucher-sheet {
-  width: 210mm;
-  min-height: 297mm;
+  width: var(--sheet-w);
+  min-height: var(--sheet-h);
   background: #fff;
   display: flex;
   flex-direction: column;
@@ -11,8 +17,8 @@
 }
 
 .voucher {
-  width: 210mm;
-  height: 148.5mm;
+  width: var(--sheet-w);
+  height: var(--voucher-h);
   padding: 8mm 12mm;
   box-sizing: border-box;
   border-bottom: 1px dashed #444;
@@ -23,6 +29,39 @@
 
 .voucher:last-child {
   border-bottom: none;
+}
+
+/* 明細過長、放不進中一刀版面的傳票：獨佔一整張 A4，內容可往下一頁續印 */
+.voucher-sheet--full > .voucher {
+  height: auto;
+  min-height: var(--sheet-h);
+  overflow: visible;
+  border-bottom: none;
+}
+
+/* 離屏量測區：用來在分頁前算出每張傳票的真實高度 */
+.measure-area {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  width: var(--sheet-w);
+}
+
+.measure-area .voucher {
+  height: auto;
+  overflow: visible;
+}
+
+.measure-area .voucher-lines {
+  flex: 0 0 auto; /* 取消 flex:1 拉伸，量到的才是內容真高 */
+}
+
+.voucher-continued-note {
+  font-size: 10px;
+  color: #444;
+  text-align: right;
+  margin-bottom: 1mm;
 }
 
 .voucher-title {
@@ -138,4 +177,10 @@
     page-break-after: auto;
     break-after: auto;
   }
+  /* 續印時表頭在每頁重複；tfoot 改成一般 row group，總計只在最後一頁出現一次
+     （tfoot 預設的 table-footer-group 會每頁重印總計，看起來像各頁小計、會誤導） */
+  .voucher-sheet--full .voucher-lines thead { display: table-header-group; }
+  .voucher-sheet--full .voucher-lines tfoot { display: table-row-group; }
+  .voucher-lines tr { break-inside: avoid; }
+  .measure-area { display: none !important; }
 }

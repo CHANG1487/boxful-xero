@@ -51,6 +51,43 @@ function fmtAccount(code, accounts) {
   return name ? `${code} ${name}` : String(code);
 }
 
+/** 讀 CSS 長度變數並換算成 px，避免在 JS 裡硬寫 561.26 這種魔術數字 */
+function cssLengthPx(varName) {
+  const probe = document.createElement('div');
+  probe.style.cssText = `position:absolute;visibility:hidden;height:var(${varName})`;
+  document.body.appendChild(probe);
+  const px = probe.getBoundingClientRect().height;
+  probe.remove();
+  return px;
+}
+
+/** 把所有 voucher HTML 放進離屏容器量高度，回傳 px 陣列 */
+function measureBlocks(blocks) {
+  const area = document.createElement('div');
+  area.className = 'measure-area';
+  area.innerHTML = blocks
+    .map((html) => `<div class="voucher-sheet">${html}</div>`)
+    .join('');
+  document.body.appendChild(area);
+  const heights = Array.from(area.querySelectorAll('.voucher')).map(
+    (el) => el.getBoundingClientRect().height
+  );
+  area.remove();
+  return heights;
+}
+
+/** 真正跨頁的 A4 傳票，在開頭標一行續印提示 */
+function markContinuedVouchers(sheetPx) {
+  document.querySelectorAll('.voucher-sheet--full > .voucher').forEach((el) => {
+    const pages = Math.ceil(el.getBoundingClientRect().height / sheetPx);
+    if (pages <= 1) return;
+    const note = document.createElement('div');
+    note.className = 'voucher-continued-note';
+    note.textContent = `本傳票明細較多，共 ${pages} 頁（續印至下一頁）`;
+    el.insertBefore(note, el.firstChild);
+  });
+}
+
 async function fetchDetail(item) {
   const r = await fetch(`/api/vouchers/${item.type}/${encodeURIComponent(item.id)}`, {
     credentials: 'same-origin',
@@ -359,14 +396,54 @@ async function build() {
     window.notify.error('部分憑證讀取失敗：\n' + failed.join('\n'));
   }
 
-  const sheets = [];
-  for (let i = 0; i < detailBlocks.length; i += 2) {
-    const first = detailBlocks[i];
-    const second = detailBlocks[i + 1] || '<div class="voucher"></div>';
-    sheets.push(`<div class="voucher-sheet">${first}${second}</div>`);
+  // 等字型載入完成再量，否則 fallback 字型的行高不同會量錯
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch (e) {
+      /* 不支援就直接量 */
+    }
   }
+
+  const HALF_PX = cssLengthPx('--voucher-h');
+  const SHEET_PX = cssLengthPx('--sheet-h');
+  const TOL = 1; // 次像素容差，避免剛好貼齊的被誤判
+
+  const heights = measureBlocks(detailBlocks);
+  const entries = detailBlocks.map((html, i) => ({
+    html,
+    height: heights[i] || 0,
+    full: (heights[i] || 0) > HALF_PX + TOL,
+  }));
+
+  // 中一刀依原順序兩兩湊滿，A4 全頁集中排在最後（省紙排法）
+  const halves = entries.filter((e) => !e.full);
+  const fulls = entries.filter((e) => e.full);
+
+  const sheets = [];
+  for (let i = 0; i < halves.length; i += 2) {
+    const second = halves[i + 1] ? halves[i + 1].html : '<div class="voucher"></div>';
+    sheets.push(`<div class="voucher-sheet">${halves[i].html}${second}</div>`);
+  }
+  let fullPages = 0;
+  for (const f of fulls) {
+    fullPages += Math.max(1, Math.ceil(f.height / SHEET_PX));
+    sheets.push(`<div class="voucher-sheet voucher-sheet--full">${f.html}</div>`);
+  }
+
   els.sheets.innerHTML = sheets.join('');
-  els.status.textContent = `共 ${items.length} 張憑證，${sheets.length} 頁 A4`;
+  markContinuedVouchers(SHEET_PX);
+
+  const pageCount = Math.ceil(halves.length / 2) + fullPages;
+  els.status.textContent = fulls.length
+    ? `共 ${items.length} 張憑證（其中 ${fulls.length} 張明細較多，已改用 A4 全頁），約 ${pageCount} 頁 A4`
+    : `共 ${items.length} 張憑證，${pageCount} 頁 A4`;
+  if (fulls.length && window.notify) {
+    window.notify.toast(
+      `有 ${fulls.length} 張傳票明細超過中一刀版面，已自動改用 A4 全頁列印`,
+      'info'
+    );
+  }
 }
 
 els.printBtn.addEventListener('click', () => window.print());
